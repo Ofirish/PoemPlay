@@ -641,11 +641,13 @@ export function PoemCanvas({
                       )}
                     </div>
 
-                    {/* One line space (empty blue notebook line) after each submitted verse line */}
-                    <div className="flex items-end min-h-[42px] border-b border-sky-300 select-none">
-                      <div className="w-14 sm:w-20 shrink-0" />
-                      <div className="flex-1 pl-3 sm:pl-5" />
-                    </div>
+                    {/* One line space ONLY if the same poet submitted consecutive lines; otherwise alternating poets sit directly line-after-line */}
+                    {room.lines[index + 1]?.author === line.author && (
+                      <div className="flex items-end min-h-[42px] border-b border-sky-300 select-none">
+                        <div className="w-14 sm:w-20 shrink-0" />
+                        <div className="flex-1 pl-3 sm:pl-5" />
+                      </div>
+                    )}
                   </Fragment>
                 );
               })
@@ -750,7 +752,7 @@ export function PoemCanvas({
           </div>
 
           {/* Lines Presentation */}
-          <div className="space-y-4 sm:space-y-6 relative z-10">
+          <div className="space-y-1.5 relative z-10">
             {room.lines.length === 0 ? (
               <div className="text-center py-20 px-4 space-y-2">
                 <p className="text-base sm:text-xl font-serif italic text-stone-500">
@@ -769,6 +771,7 @@ export function PoemCanvas({
                   (p) => p.targetLineId === line.id && p.status === 'pending'
                 );
                 const isProposer = pendingProposal?.proposer === currentPlayerRole;
+                const isSameAuthorNext = room.lines[index + 1]?.author === line.author;
 
                 return (
                   <div
@@ -777,7 +780,9 @@ export function PoemCanvas({
                       lineRefs.current[lineNum] = el;
                     }}
                     id={`poem-line-${lineNum}`}
-                    className="group relative rounded-2xl p-2 sm:p-3 transition-all hover:bg-stone-50/50 space-y-1"
+                    className={`group relative rounded-2xl p-2 sm:p-3 transition-all hover:bg-stone-50/50 space-y-1 ${
+                      isSameAuthorNext ? 'mb-6' : ''
+                    }`}
                   >
                     {/* Top Bar Above Line: Poet Name, Line Number, and Action Buttons */}
                     <div className="flex items-center justify-between pb-1 border-b border-stone-200/40">
