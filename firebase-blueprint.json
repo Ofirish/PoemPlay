@@ -1,0 +1,49 @@
+{
+  "entities": {
+    "Room": {
+      "title": "Room",
+      "description": "Collaborative poem room for two players",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique secret room key" },
+        "title": { "type": "string", "description": "Title of the poem", "maxLength": 100 },
+        "turn": { "type": "string", "enum": ["player1", "player2"], "description": "Current player whose turn it is" },
+        "player1": {
+          "type": "object",
+          "description": "Player 1 metadata and styling palette"
+        },
+        "player2": {
+          "type": "object",
+          "description": "Player 2 metadata and styling palette"
+        },
+        "lines": {
+          "type": "array",
+          "description": "Array of rhyming lines in the poem"
+        },
+        "proposals": {
+          "type": "array",
+          "description": "Array of active and resolved line revision proposals"
+        },
+        "messages": {
+          "type": "array",
+          "description": "Array of in-game corner chat messages"
+        },
+        "updatedAt": {
+          "type": "number",
+          "description": "Timestamp of last modification"
+        },
+        "createdAt": {
+          "type": "number",
+          "description": "Timestamp of creation"
+        }
+      },
+      "required": ["id", "turn", "lines", "proposals", "messages"]
+    }
+  },
+  "firestore": {
+    "/rooms/{roomId}": {
+      "schema": "Room",
+      "description": "Shared real-time canvas document for two participants"
+    }
+  }
+}

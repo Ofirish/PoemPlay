@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidRoomId(roomId) {
+      return roomId is string && roomId.size() > 0 && roomId.size() <= 128;
+    }
+
+    // Collaborative poem canvas rooms accessible by secret room key / magic link
+    match /rooms/{roomId} {
+      allow read, write: if isValidRoomId(roomId);
+    }
+  }
+}

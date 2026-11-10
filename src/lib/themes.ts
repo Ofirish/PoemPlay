@@ -1,0 +1,158 @@
+import { DesignThemeId } from '../types';
+
+export interface ThemeDefinition {
+  id: DesignThemeId;
+  name: string;
+  subtitle: string;
+  bgClass: string;
+  cardClass: string;
+  cardBorderClass: string;
+  textPrimaryClass: string;
+  textSecondaryClass: string;
+  accentClass: string;
+  accentHoverClass: string;
+  inputBgClass: string;
+  fontDisplayClass: string;
+  fontBodyClass: string;
+  badgeBgClass: string;
+  icon: string;
+}
+
+export const THEMES: Record<DesignThemeId, ThemeDefinition> = {
+  pink: {
+    id: 'pink',
+    name: 'Blush & Gold',
+    subtitle: 'Soft rose petals, champagne accents, and romantic grace',
+    bgClass: 'bg-rose-50/70',
+    cardClass: 'bg-white/90 shadow-sm shadow-rose-100',
+    cardBorderClass: 'border-rose-200/70',
+    textPrimaryClass: 'text-rose-950',
+    textSecondaryClass: 'text-rose-700/80',
+    accentClass: 'bg-rose-500 text-white shadow-rose-200',
+    accentHoverClass: 'hover:bg-rose-600',
+    inputBgClass: 'bg-rose-50/50 border-rose-200 focus:border-rose-400 focus:ring-rose-200',
+    fontDisplayClass: 'font-display-playfair',
+    fontBodyClass: 'font-serif-cormorant',
+    badgeBgClass: 'bg-rose-100/80 text-rose-800 border-rose-200',
+    icon: '🌸',
+  },
+  cute: {
+    id: 'cute',
+    name: 'Butter & Mint',
+    subtitle: 'Playful pastels, rounded softness, and cozy charms',
+    bgClass: 'bg-amber-50/60',
+    cardClass: 'bg-white/95 shadow-sm shadow-emerald-50',
+    cardBorderClass: 'border-emerald-200/80',
+    textPrimaryClass: 'text-emerald-950',
+    textSecondaryClass: 'text-emerald-700/80',
+    accentClass: 'bg-emerald-500 text-white shadow-emerald-200',
+    accentHoverClass: 'hover:bg-emerald-600',
+    inputBgClass: 'bg-amber-50/40 border-emerald-200 focus:border-emerald-400 focus:ring-emerald-200',
+    fontDisplayClass: 'font-outfit font-semibold',
+    fontBodyClass: 'font-dm',
+    badgeBgClass: 'bg-amber-100/80 text-amber-900 border-amber-200',
+    icon: '✨',
+  },
+  purple: {
+    id: 'purple',
+    name: 'Royal Amethyst',
+    subtitle: 'Deep velvet violet, lavender mist, and poetic mystery',
+    bgClass: 'bg-slate-950 text-slate-100',
+    cardClass: 'bg-purple-950/40 backdrop-blur-md shadow-md shadow-purple-950/40',
+    cardBorderClass: 'border-purple-800/60',
+    textPrimaryClass: 'text-purple-100',
+    textSecondaryClass: 'text-purple-300/80',
+    accentClass: 'bg-purple-600 text-white shadow-purple-900',
+    accentHoverClass: 'hover:bg-purple-500',
+    inputBgClass: 'bg-purple-950/60 border-purple-800 text-purple-100 focus:border-purple-400 focus:ring-purple-900',
+    fontDisplayClass: 'font-cinzel',
+    fontBodyClass: 'font-serif-cormorant',
+    badgeBgClass: 'bg-purple-900/60 text-purple-200 border-purple-700',
+    icon: '🔮',
+  },
+  futuristic: {
+    id: 'futuristic',
+    name: 'Cyber Slate',
+    subtitle: 'Dark obsidian matrix, crisp cyan conduits, and modern cadence',
+    bgClass: 'bg-neutral-950 text-neutral-100',
+    cardClass: 'bg-neutral-900/90 shadow-md shadow-cyan-950/20',
+    cardBorderClass: 'border-cyan-500/30',
+    textPrimaryClass: 'text-cyan-50',
+    textSecondaryClass: 'text-cyan-300/70',
+    accentClass: 'bg-cyan-500 text-neutral-950 font-semibold shadow-cyan-500/30',
+    accentHoverClass: 'hover:bg-cyan-400',
+    inputBgClass: 'bg-neutral-900 border-cyan-500/40 text-cyan-100 focus:border-cyan-400 focus:ring-cyan-500/20',
+    fontDisplayClass: 'font-jakarta font-bold tracking-tight',
+    fontBodyClass: 'font-dm',
+    badgeBgClass: 'bg-cyan-950/80 text-cyan-300 border-cyan-700/60',
+    icon: '⚡',
+  },
+  calm: {
+    id: 'calm',
+    name: 'Eucalyptus & Linen',
+    subtitle: 'Peaceful sage, warm stone neutrals, and mindful silence',
+    bgClass: 'bg-stone-50',
+    cardClass: 'bg-white/95 shadow-xs shadow-stone-200',
+    cardBorderClass: 'border-stone-200',
+    textPrimaryClass: 'text-stone-900',
+    textSecondaryClass: 'text-stone-600',
+    accentClass: 'bg-stone-800 text-stone-100 shadow-stone-300',
+    accentHoverClass: 'hover:bg-stone-700',
+    inputBgClass: 'bg-stone-100/60 border-stone-300 focus:border-stone-500 focus:ring-stone-200',
+    fontDisplayClass: 'font-fraunces',
+    fontBodyClass: 'font-serif-cormorant',
+    badgeBgClass: 'bg-stone-100 text-stone-800 border-stone-300',
+    icon: '🍃',
+  },
+  'french-bulldog': {
+    id: 'french-bulldog',
+    name: 'French Bulldog',
+    subtitle: 'Light gray canvas, charcoal patches, blue & black eyes',
+    bgClass: 'bg-slate-100/90',
+    cardClass: 'bg-white/95 shadow-sm shadow-slate-200',
+    cardBorderClass: 'border-slate-300',
+    textPrimaryClass: 'text-slate-900',
+    textSecondaryClass: 'text-slate-600',
+    accentClass: 'bg-slate-800 text-white shadow-slate-300',
+    accentHoverClass: 'hover:bg-slate-700',
+    inputBgClass: 'bg-slate-50 border-slate-300 focus:border-sky-500 focus:ring-sky-200',
+    fontDisplayClass: 'font-display-playfair',
+    fontBodyClass: 'font-jakarta',
+    badgeBgClass: 'bg-slate-200/80 text-slate-800 border-slate-300',
+    icon: '🐶',
+  },
+  'daddy-and-toy': {
+    id: 'daddy-and-toy',
+    name: 'Daddy & Toy',
+    subtitle: 'Warm hearts, plush hugs, tender kisses, and loving words',
+    bgClass: 'bg-rose-50/50',
+    cardClass: 'bg-white/95 shadow-sm shadow-rose-100',
+    cardBorderClass: 'border-rose-300/80',
+    textPrimaryClass: 'text-rose-950',
+    textSecondaryClass: 'text-rose-700/80',
+    accentClass: 'bg-rose-600 text-white shadow-rose-200',
+    accentHoverClass: 'hover:bg-rose-500',
+    inputBgClass: 'bg-rose-50/40 border-rose-200 focus:border-rose-400 focus:ring-rose-200',
+    fontDisplayClass: 'font-outfit font-semibold',
+    fontBodyClass: 'font-dm',
+    badgeBgClass: 'bg-rose-100 text-rose-900 border-rose-300',
+    icon: '🧸',
+  },
+  'lined-notebook': {
+    id: 'lined-notebook',
+    name: 'Lined Notebook',
+    subtitle: 'Organic white paper texture, distinct blue lines, and red margin',
+    bgClass: 'bg-stone-200/70',
+    cardClass: 'paper-texture shadow-lg shadow-stone-400/20',
+    cardBorderClass: 'border-stone-300',
+    textPrimaryClass: 'text-slate-900',
+    textSecondaryClass: 'text-blue-800',
+    accentClass: 'bg-blue-600 text-white shadow-blue-200',
+    accentHoverClass: 'hover:bg-blue-700',
+    inputBgClass: 'bg-blue-50/40 border-blue-300 focus:border-blue-500 focus:ring-blue-200 text-slate-900',
+    fontDisplayClass: 'font-display-playfair font-semibold',
+    fontBodyClass: 'font-serif-cormorant',
+    badgeBgClass: 'bg-blue-50 text-blue-900 border-blue-200',
+    icon: '📓',
+  },
+};

@@ -1,0 +1,8 @@
+{
+  "name": "PoemPlay",
+  "description": "Collaborative two-player rhyming canvas with real-time sync, 7 bespoke aesthetic themes, inline revision approvals, and fine-art exports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
