@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Check, User, Sparkles } from 'lucide-react';
 import { ParticipantProfile, BadgeStyle } from '../types';
 
@@ -10,21 +10,38 @@ interface NamePaletteModalProps {
   playerRole: 'player1' | 'player2';
 }
 
-const COLOR_OPTIONS = [
-  { id: 'rose', label: 'Rose Gold', textClass: 'text-rose-700', bgClass: 'bg-rose-100', borderClass: 'border-rose-300' },
-  { id: 'emerald', label: 'Emerald Ink', textClass: 'text-emerald-800', bgClass: 'bg-emerald-100', borderClass: 'border-emerald-300' },
-  { id: 'violet', label: 'Royal Violet', textClass: 'text-purple-800', bgClass: 'bg-purple-100', borderClass: 'border-purple-300' },
-  { id: 'cyan', label: 'Cyber Sky', textClass: 'text-sky-800', bgClass: 'bg-sky-100', borderClass: 'border-sky-300' },
-  { id: 'terracotta', label: 'Warm Ochre', textClass: 'text-amber-800', bgClass: 'bg-amber-100', borderClass: 'border-amber-300' },
-  { id: 'indigo', label: 'Twilight Indigo', textClass: 'text-indigo-800', bgClass: 'bg-indigo-100', borderClass: 'border-indigo-300' },
-  { id: 'charcoal', label: 'French Charcoal', textClass: 'text-slate-800', bgClass: 'bg-slate-200', borderClass: 'border-slate-400' },
+export const COLOR_OPTIONS = [
+  { id: 'rose', label: 'Rose Gold', textClass: 'text-rose-700', bgClass: 'bg-rose-100', borderClass: 'border-rose-300', hexText: '#BE123C', hexBg: '#FFE4E6' },
+  { id: 'emerald', label: 'Emerald Ink', textClass: 'text-emerald-800', bgClass: 'bg-emerald-100', borderClass: 'border-emerald-300', hexText: '#065F46', hexBg: '#D1FAE5' },
+  { id: 'violet', label: 'Royal Violet', textClass: 'text-purple-800', bgClass: 'bg-purple-100', borderClass: 'border-purple-300', hexText: '#6B21A8', hexBg: '#F3E8FF' },
+  { id: 'cyan', label: 'Cyber Sky', textClass: 'text-sky-800', bgClass: 'bg-sky-100', borderClass: 'border-sky-300', hexText: '#075985', hexBg: '#E0F2FE' },
+  { id: 'terracotta', label: 'Warm Ochre', textClass: 'text-amber-800', bgClass: 'bg-amber-100', borderClass: 'border-amber-300', hexText: '#92400E', hexBg: '#FEF3C7' },
+  { id: 'indigo', label: 'Twilight Indigo', textClass: 'text-indigo-800', bgClass: 'bg-indigo-100', borderClass: 'border-indigo-300', hexText: '#3730A3', hexBg: '#E0E7FF' },
+  { id: 'charcoal', label: 'French Charcoal', textClass: 'text-slate-800', bgClass: 'bg-slate-200', borderClass: 'border-slate-400', hexText: '#1E293B', hexBg: '#E2E8F0' },
 ];
 
+export function formatBadgeDisplayText(name: string, symbol: string, style: BadgeStyle): string {
+  const cleanName = name.trim() || 'Poet';
+  const cleanSymbol = symbol || '🪶';
+  switch (style) {
+    case 'bracket':
+      return `[${cleanSymbol} ${cleanName}]`;
+    case 'monogram': {
+      const initial = (cleanName[0] || 'P').toUpperCase();
+      return `${cleanSymbol} ${initial} · ${cleanName}`;
+    }
+    case 'italic':
+    case 'sans':
+    default:
+      return `${cleanSymbol} ${cleanName}`;
+  }
+}
+
 const STYLE_OPTIONS: { id: BadgeStyle; label: string; preview: (name: string, symbol: string) => string }[] = [
-  { id: 'italic', label: 'Editorial Italic', preview: (name, s) => `${s} ${name}` },
-  { id: 'sans', label: 'Modern Sans', preview: (name, s) => `${s} ${name}` },
-  { id: 'bracket', label: 'Literary Brackets', preview: (name, s) => `[${s} ${name}]` },
-  { id: 'monogram', label: 'Author Seal', preview: (name, s) => `${s} ${name[0] || 'A'}` },
+  { id: 'italic', label: 'Editorial Italic', preview: (name, s) => formatBadgeDisplayText(name, s, 'italic') },
+  { id: 'sans', label: 'Modern Sans', preview: (name, s) => formatBadgeDisplayText(name, s, 'sans') },
+  { id: 'bracket', label: 'Literary Brackets', preview: (name, s) => formatBadgeDisplayText(name, s, 'bracket') },
+  { id: 'monogram', label: 'Author Seal', preview: (name, s) => formatBadgeDisplayText(name, s, 'monogram') },
 ];
 
 const SYMBOL_OPTIONS = [
@@ -50,6 +67,16 @@ export function NamePaletteModal({
   const [selectedStyle, setSelectedStyle] = useState<BadgeStyle>(profile.style);
   const [selectedSymbol, setSelectedSymbol] = useState(profile.symbol);
 
+  // Sync local form state whenever modal opens or profile updates in real time
+  useEffect(() => {
+    if (isOpen && profile) {
+      setName(profile.name);
+      setSelectedColor(profile.color);
+      setSelectedStyle(profile.style);
+      setSelectedSymbol(profile.symbol);
+    }
+  }, [isOpen, profile]);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -64,7 +91,12 @@ export function NamePaletteModal({
     onClose();
   };
 
-  const currentColor = COLOR_OPTIONS.find((c) => c.id === selectedColor) || COLOR_OPTIONS[0];
+  const previewProfile: ParticipantProfile = {
+    name: name || (playerRole === 'player1' ? 'Poet One' : 'Poet Two'),
+    color: selectedColor,
+    style: selectedStyle,
+    symbol: selectedSymbol,
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-150">
@@ -78,7 +110,7 @@ export function NamePaletteModal({
             <div>
               <h3 className="text-sm font-semibold text-stone-900">Personal Name Palette</h3>
               <p className="text-[11px] text-stone-500">
-                Customizes how your name appears beside each rhyming line
+                Updates your name & badge design across the entire poem in real time
               </p>
             </div>
           </div>
@@ -197,26 +229,13 @@ export function NamePaletteModal({
             </div>
           </div>
 
-          {/* Live Preview */}
+          {/* Live Preview - Uses the exact same renderNameBadge function so preview matches canvas 100% */}
           <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200">
             <p className="text-[10px] uppercase font-semibold text-stone-400 mb-1 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-500" /> Live Line Beside Preview
+              <Sparkles className="w-3 h-3 text-amber-500" /> Live Badge Preview
             </p>
             <div className="flex items-center gap-3">
-              <span
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium ${
-                  currentColor.bgClass
-                } ${currentColor.textClass} ${currentColor.borderClass} ${
-                  selectedStyle === 'italic'
-                    ? 'font-serif italic'
-                    : selectedStyle === 'bracket'
-                    ? 'font-mono'
-                    : 'font-sans'
-                }`}
-              >
-                <span>{selectedSymbol}</span>
-                <span>{name || 'Your Name'}</span>
-              </span>
+              {renderNameBadge(previewProfile)}
               <span className="text-xs text-stone-400 italic">"The amber leaf falls softly into light..."</span>
             </div>
           </div>
@@ -245,25 +264,72 @@ export function NamePaletteModal({
   );
 }
 
-export function renderNameBadge(profile: ParticipantProfile, fallbackLabel = 'Poet') {
-  const color = COLOR_OPTIONS.find((c) => c.id === profile.color) || COLOR_OPTIONS[0];
-  const name = profile.name || fallbackLabel;
-  const symbol = profile.symbol || '🪶';
+export function renderNameBadge(
+  profile: ParticipantProfile | undefined | null,
+  fallbackLabel = 'Poet',
+  onClick?: () => void
+) {
+  const safeProfile: ParticipantProfile = profile || {
+    name: fallbackLabel,
+    color: 'rose',
+    style: 'italic',
+    symbol: '🪶',
+  };
+  const color = COLOR_OPTIONS.find((c) => c.id === safeProfile.color) || COLOR_OPTIONS[0];
+  const name = safeProfile.name || fallbackLabel;
+  const symbol = safeProfile.symbol || '🪶';
+  const style = safeProfile.style || 'italic';
+
+  const fontClass =
+    style === 'italic'
+      ? 'font-serif italic'
+      : style === 'bracket'
+      ? 'font-mono'
+      : style === 'monogram'
+      ? 'font-serif font-semibold tracking-wide'
+      : 'font-sans';
+
+  const content =
+    style === 'bracket' ? (
+      <>
+        <span className="opacity-70">[</span>
+        <span className="text-xs leading-none">{symbol}</span>
+        <span className="truncate max-w-[130px] sm:max-w-[180px]">{name}</span>
+        <span className="opacity-70">]</span>
+      </>
+    ) : style === 'monogram' ? (
+      <>
+        <span className="text-xs leading-none">{symbol}</span>
+        <span className="px-1 py-0.2 rounded-sm bg-black/10 text-[10px] font-bold uppercase leading-none">
+          {(name.trim()[0] || 'P').toUpperCase()}
+        </span>
+        <span className="truncate max-w-[130px] sm:max-w-[180px]">{name}</span>
+      </>
+    ) : (
+      <>
+        <span className="text-xs leading-none">{symbol}</span>
+        <span className="truncate max-w-[130px] sm:max-w-[180px]">{name}</span>
+      </>
+    );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        title="Click to customize your poet name & badge style"
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] border font-medium transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-2xs ${color.bgClass} ${color.textClass} ${color.borderClass} ${fontClass}`}
+      >
+        {content}
+      </button>
+    );
+  }
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] border font-medium ${
-        color.bgClass
-      } ${color.textClass} ${color.borderClass} ${
-        profile.style === 'italic'
-          ? 'font-serif italic'
-          : profile.style === 'bracket'
-          ? 'font-mono'
-          : 'font-sans'
-      }`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] border font-medium select-none ${color.bgClass} ${color.textClass} ${color.borderClass} ${fontClass}`}
     >
-      <span className="text-xs">{symbol}</span>
-      <span className="truncate max-w-[130px] sm:max-w-[180px]">{name}</span>
+      {content}
     </span>
   );
 }

@@ -50,6 +50,8 @@ interface PoemCanvasProps {
   onWithdrawProposal: (proposalId: string) => Promise<void>;
   onChangeTitle: (newTitle: string) => Promise<void>;
   onOpenNewPoemModal?: () => void;
+  onOpenGameModeModal?: () => void;
+  onOpenNameModal?: () => void;
 }
 
 export function PoemCanvas({
@@ -66,6 +68,8 @@ export function PoemCanvas({
   onWithdrawProposal,
   onChangeTitle,
   onOpenNewPoemModal,
+  onOpenGameModeModal,
+  onOpenNameModal,
 }: PoemCanvasProps) {
   const theme = THEMES[currentThemeId] || THEMES.pink;
 
@@ -130,7 +134,7 @@ export function PoemCanvas({
   const lastLine = room.lines[room.lines.length - 1];
 
   const isGlimpseMode = room.gameMode === 'glimpse';
-  const targetLineCount = Math.max(2, Math.min(998, room.targetLineCount || 8));
+  const targetLineCount = Math.max(2, Math.min(1000, room.targetLineCount || 8));
   const revealedWordCount = Math.max(0, Math.min(5, room.revealedWordCount ?? 2));
   const isGlimpseCompleted = isGlimpseMode && room.lines.length >= targetLineCount;
 
@@ -346,12 +350,12 @@ export function PoemCanvas({
                         <span className="font-mono text-amber-900 font-bold text-xs">
                           {targetLineCount - room.lines.length} left
                         </span>
-                        {onOpenNewPoemModal && (
+                        {(onOpenGameModeModal || onOpenNewPoemModal) && (
                           <button
                             type="button"
-                            onClick={onOpenNewPoemModal}
+                            onClick={onOpenGameModeModal || onOpenNewPoemModal}
                             className="px-2 py-0.5 text-[10px] font-bold bg-amber-200 hover:bg-amber-300 text-amber-950 rounded-lg transition-colors cursor-pointer border border-amber-300 flex items-center gap-1 shadow-2xs"
-                            title="Adjust Glimpse Mode rules or start a new poem"
+                            title="Adjust Glimpse Mode rules for both poets"
                           >
                             <span>⚙️ Rules</span>
                           </button>
@@ -371,9 +375,17 @@ export function PoemCanvas({
                 </span>
               </div>
               <div className="flex-1 min-w-0 pl-3 sm:pl-5 flex items-center gap-2 pb-0.5 overflow-x-auto no-scrollbar">
-                {renderNameBadge(room.player1, 'Player 1')}
+                {renderNameBadge(
+                  room.player1,
+                  'Player 1',
+                  currentPlayerRole === 'player1' ? onOpenNameModal : undefined
+                )}
                 <span className="text-stone-400 font-serif italic text-xs select-none">&</span>
-                {renderNameBadge(room.player2, 'Player 2')}
+                {renderNameBadge(
+                  room.player2,
+                  'Player 2',
+                  currentPlayerRole === 'player2' ? onOpenNameModal : undefined
+                )}
                 <span className="text-stone-300 font-serif italic select-none">·</span>
                 <span className="text-[11px] font-serif italic text-stone-500 whitespace-nowrap">
                   {room.turn === currentPlayerRole ? '✨ Your turn to rhyme' : "⏳ Partner's turn"}
@@ -451,60 +463,77 @@ export function PoemCanvas({
                         </div>
 
                         {/* Right of Red Margin Line: Verse Text seated directly on the blue line with actions on right! */}
-                        <div className="flex-1 min-w-0 pl-3 sm:pl-5 flex items-end justify-between group/verse">
-                          {isPastLineHiddenInGlimpse ? (
-                            <div className="flex items-center gap-2 text-stone-400 font-serif italic text-xs sm:text-sm py-1 select-none">
-                              <Lock className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                              <span className="opacity-40 font-mono tracking-widest">••••••••••••••••••••</span>
-                              <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md font-mono">
-                                Hidden until Line {targetLineCount}
+                        <div className="flex-1 min-w-0 pl-3 sm:pl-5 flex items-end justify-between gap-2 group/verse">
+                          <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                            {showPoetNames && (
+                              <span
+                                onClick={() => {
+                                  if (activeEditingLineId === line.id) {
+                                    handleCancelEdit();
+                                  } else {
+                                    handleStartEdit(line);
+                                  }
+                                }}
+                                className="cursor-pointer shrink-0 pb-0.5"
+                                title={`Line ${lineNum} by ${authorProfile.name} (click to propose edit)`}
+                              >
+                                {renderNameBadge(authorProfile)}
                               </span>
-                            </div>
-                          ) : isLatestLineInGlimpse ? (
-                            <div className="flex items-center gap-2 py-0.5 flex-wrap font-serif text-base sm:text-xl">
-                              {maskedPart && (
-                                <span className="text-stone-300 select-none tracking-widest font-mono text-sm opacity-60">
-                                  {maskedPart}
+                            )}
+                            {isPastLineHiddenInGlimpse ? (
+                              <div className="flex items-center gap-2 text-stone-400 font-serif italic text-xs sm:text-sm py-1 select-none">
+                                <Lock className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                                <span className="opacity-40 font-mono tracking-widest">••••••••••••••••••••</span>
+                                <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md font-mono">
+                                  Hidden until Line {targetLineCount}
                                 </span>
-                              )}
-                              {revealedWords ? (
-                                <span
-                                  onClick={() => {
-                                    if (activeEditingLineId === line.id) {
-                                      handleCancelEdit();
-                                    } else {
-                                      handleStartEdit(line);
-                                    }
-                                  }}
-                                  className="bg-amber-200/90 text-amber-950 font-bold px-3 py-0.5 rounded-xl border border-amber-400 shadow-2xs cursor-pointer hover:bg-amber-300 transition-colors inline-flex items-center gap-1.5"
-                                  title="Click to view or propose edit"
-                                >
-                                  <span>{revealedWords}</span>
-                                  <span className="text-[10px] font-mono uppercase bg-amber-300 text-amber-950 px-1.5 py-0.2 rounded-md">
-                                    Glimpse
+                              </div>
+                            ) : isLatestLineInGlimpse ? (
+                              <div className="flex items-center gap-2 py-0.5 flex-wrap font-serif text-base sm:text-xl">
+                                {maskedPart && (
+                                  <span className="text-stone-300 select-none tracking-widest font-mono text-sm opacity-60">
+                                    {maskedPart}
                                   </span>
-                                </span>
-                              ) : (
-                                <span className="text-stone-400 italic text-xs font-mono">
-                                  🔒 (0 trailing words revealed)
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <p
-                              onClick={() => {
-                                if (activeEditingLineId === line.id) {
-                                  handleCancelEdit();
-                                } else {
-                                  handleStartEdit(line);
-                                }
-                              }}
-                              className="text-base sm:text-xl font-serif text-stone-900 leading-snug tracking-wide whitespace-normal break-words m-0 p-0 select-text cursor-pointer hover:text-stone-700"
-                              title="Click poet icon or verse to edit line"
-                            >
-                              {line.text}
-                            </p>
-                          )}
+                                )}
+                                {revealedWords ? (
+                                  <span
+                                    onClick={() => {
+                                      if (activeEditingLineId === line.id) {
+                                        handleCancelEdit();
+                                      } else {
+                                        handleStartEdit(line);
+                                      }
+                                    }}
+                                    className="bg-amber-200/90 text-amber-950 font-bold px-3 py-0.5 rounded-xl border border-amber-400 shadow-2xs cursor-pointer hover:bg-amber-300 transition-colors inline-flex items-center gap-1.5"
+                                    title="Click to view or propose edit"
+                                  >
+                                    <span>{revealedWords}</span>
+                                    <span className="text-[10px] font-mono uppercase bg-amber-300 text-amber-950 px-1.5 py-0.2 rounded-md">
+                                      Glimpse
+                                    </span>
+                                  </span>
+                                ) : (
+                                  <span className="text-stone-400 italic text-xs font-mono">
+                                    🔒 (0 trailing words revealed)
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <p
+                                onClick={() => {
+                                  if (activeEditingLineId === line.id) {
+                                    handleCancelEdit();
+                                  } else {
+                                    handleStartEdit(line);
+                                  }
+                                }}
+                                className="text-base sm:text-xl font-serif text-stone-900 leading-snug tracking-wide whitespace-normal break-words m-0 p-0 select-text cursor-pointer hover:text-stone-700"
+                                title="Click poet icon or verse to edit line"
+                              >
+                                {line.text}
+                              </p>
+                            )}
+                          </div>
 
                           {/* Action buttons on right edge - visible on touch, enhanced on hover */}
                           <div className="flex items-center gap-0.5 opacity-70 sm:opacity-0 sm:group-hover/verse:opacity-100 transition-opacity pl-2 shrink-0 pb-0.5">
@@ -571,13 +600,14 @@ export function PoemCanvas({
                       {pendingProposal && (
                         <div className="my-2 p-3 rounded-2xl border-2 border-dashed border-rose-300 bg-rose-50/90 shadow-xs animate-in fade-in duration-150">
                           <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-rose-200/80">
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-900">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-900 flex-wrap">
                               <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
                               <span>
-                                {pendingProposal.type === 'edit'
-                                  ? `Proposed Edit by ${pendingProposal.proposerName}`
-                                  : `Proposed Deletion by ${pendingProposal.proposerName}`}
+                                {pendingProposal.type === 'edit' ? 'Proposed Edit by' : 'Proposed Deletion by'}
                               </span>
+                              {renderNameBadge(
+                                pendingProposal.proposer === 'player1' ? room.player1 : room.player2
+                              )}
                             </div>
                             <span className="text-[10px] text-rose-500 font-mono">
                               Requires partner approval
@@ -733,11 +763,19 @@ export function PoemCanvas({
             )}
 
             <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-stone-500">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span>Co-created by</span>
-                {renderNameBadge(room.player1, 'Player 1')}
+                {renderNameBadge(
+                  room.player1,
+                  'Player 1',
+                  currentPlayerRole === 'player1' ? onOpenNameModal : undefined
+                )}
                 <span>&</span>
-                {renderNameBadge(room.player2, 'Player 2')}
+                {renderNameBadge(
+                  room.player2,
+                  'Player 2',
+                  currentPlayerRole === 'player2' ? onOpenNameModal : undefined
+                )}
               </div>
 
               <button
@@ -751,15 +789,71 @@ export function PoemCanvas({
             </div>
           </div>
 
+          {/* Glimpse Mode Status Banner for Card Themes */}
+          {isGlimpseMode && (
+            <div className="mb-6 relative z-10">
+              {isGlimpseCompleted ? (
+                <div className="p-3 bg-gradient-to-r from-amber-100 via-rose-100 to-emerald-100 border border-amber-300 rounded-2xl flex items-center justify-between text-xs text-stone-900 shadow-xs animate-in zoom-in-95">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                    <div>
+                      <p className="font-bold text-xs sm:text-sm">✨ GLIMPSE POEM COMPLETE & REVEALED! ✨</p>
+                      <p className="text-[10px] sm:text-[11px] text-stone-600">
+                        All {targetLineCount} lines unveiled for both poets!
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 bg-amber-200/80 text-amber-950 rounded-xl font-bold font-mono text-[11px] shrink-0">
+                    {room.lines.length} / {targetLineCount}
+                  </span>
+                </div>
+              ) : (
+                <div className="p-3 bg-amber-50/95 border border-amber-300 rounded-2xl flex items-center justify-between text-xs text-amber-950 shadow-2xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Eye className="w-4 h-4 text-amber-600 animate-pulse shrink-0" />
+                    <span className="font-bold uppercase tracking-wider text-[10px] bg-amber-200/80 text-amber-950 px-2 py-0.5 rounded-md">
+                      Glimpse Mode
+                    </span>
+                    <span className="font-serif italic text-xs">
+                      Line {room.lines.length} of {targetLineCount} written
+                    </span>
+                    <span className="text-[10px] text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md font-mono">
+                      Revealing last {revealedWordCount} word(s)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 pl-2">
+                    <span className="font-mono text-amber-900 font-bold text-xs">
+                      {targetLineCount - room.lines.length} left
+                    </span>
+                    {(onOpenGameModeModal || onOpenNewPoemModal) && (
+                      <button
+                        type="button"
+                        onClick={onOpenGameModeModal || onOpenNewPoemModal}
+                        className="px-2.5 py-1 text-[10px] font-bold bg-amber-200 hover:bg-amber-300 text-amber-950 rounded-lg transition-colors cursor-pointer border border-amber-300 flex items-center gap-1 shadow-2xs"
+                        title="Adjust Glimpse Mode rules for both poets"
+                      >
+                        <span>⚙️ Rules</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Lines Presentation */}
           <div className="space-y-1.5 relative z-10">
             {room.lines.length === 0 ? (
               <div className="text-center py-20 px-4 space-y-2">
                 <p className="text-base sm:text-xl font-serif italic text-stone-500">
-                  The blank canvas awaits your first couplet...
+                  {isGlimpseMode
+                    ? `Glimpse Poem initialized (${targetLineCount} lines target). Poet 1 writes Line 1!`
+                    : 'The blank canvas awaits your first couplet...'}
                 </p>
                 <p className="text-xs text-stone-400">
-                  Write an opening line below. Your partner will respond with a matching rhyme!
+                  {isGlimpseMode
+                    ? `Each partner will only see the last ${revealedWordCount} word(s) until Line ${targetLineCount} is reached!`
+                    : 'Write an opening line below. Your partner will respond with a matching rhyme!'}
                 </p>
               </div>
             ) : (
@@ -772,6 +866,16 @@ export function PoemCanvas({
                 );
                 const isProposer = pendingProposal?.proposer === currentPlayerRole;
                 const isSameAuthorNext = room.lines[index + 1]?.author === line.author;
+
+                // Glimpse mode masking calculations (identical to Lined Notebook)
+                const isPastLineHiddenInGlimpse =
+                  isGlimpseMode && !isGlimpseCompleted && index < room.lines.length - 1;
+                const isLatestLineInGlimpse =
+                  isGlimpseMode && !isGlimpseCompleted && index === room.lines.length - 1;
+                const { maskedPart, revealedWords } = extractGlimpseParts(
+                  line.text,
+                  revealedWordCount
+                );
 
                 return (
                   <div
@@ -791,8 +895,7 @@ export function PoemCanvas({
                           #{String(lineNum).padStart(2, '0')}
                         </span>
                         {showPoetNames && (
-                          <button
-                            type="button"
+                          <span
                             onClick={() => {
                               if (activeEditingLineId === line.id) {
                                 handleCancelEdit();
@@ -801,10 +904,10 @@ export function PoemCanvas({
                               }
                             }}
                             className="flex items-center cursor-pointer hover:opacity-85 active:scale-95 transition-transform"
-                            title={`Click poet icon to edit Line ${lineNum}`}
+                            title={`Click poet badge to edit Line ${lineNum}`}
                           >
                             {renderNameBadge(authorProfile)}
-                          </button>
+                          </span>
                         )}
                       </div>
 
@@ -830,13 +933,53 @@ export function PoemCanvas({
                       </div>
                     </div>
 
-                    {/* Verse Line Text */}
+                    {/* Verse Line Text with Glimpse Mode support */}
                     <div className="w-full relative">
-                      <p
-                        className={`relative z-10 text-base sm:text-2xl font-normal tracking-wide whitespace-normal break-words py-1 pl-1 leading-snug sm:leading-relaxed ${theme.fontBodyClass} ${theme.textPrimaryClass}`}
-                      >
-                        {line.text}
-                      </p>
+                      {isPastLineHiddenInGlimpse ? (
+                        <div className="flex items-center gap-2 text-stone-400 font-serif italic text-xs sm:text-sm py-2 pl-1 select-none">
+                          <Lock className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                          <span className="opacity-40 font-mono tracking-widest">••••••••••••••••••••</span>
+                          <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md font-mono">
+                            Hidden until Line {targetLineCount}
+                          </span>
+                        </div>
+                      ) : isLatestLineInGlimpse ? (
+                        <div className="flex items-center gap-2 py-1 pl-1 flex-wrap font-serif text-base sm:text-2xl">
+                          {maskedPart && (
+                            <span className="text-stone-400 select-none tracking-widest font-mono text-sm opacity-60">
+                              {maskedPart}
+                            </span>
+                          )}
+                          {revealedWords ? (
+                            <span
+                              onClick={() => {
+                                if (activeEditingLineId === line.id) {
+                                  handleCancelEdit();
+                                } else {
+                                  handleStartEdit(line);
+                                }
+                              }}
+                              className="bg-amber-200/90 text-amber-950 font-bold px-3 py-0.5 rounded-xl border border-amber-400 shadow-2xs cursor-pointer hover:bg-amber-300 transition-colors inline-flex items-center gap-1.5"
+                              title="Click to view or propose edit"
+                            >
+                              <span>{revealedWords}</span>
+                              <span className="text-[10px] font-mono uppercase bg-amber-300 text-amber-950 px-1.5 py-0.2 rounded-md">
+                                Glimpse
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="text-stone-400 italic text-xs font-mono">
+                              🔒 (0 trailing words revealed)
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <p
+                          className={`relative z-10 text-base sm:text-2xl font-normal tracking-wide whitespace-normal break-words py-1 pl-1 leading-snug sm:leading-relaxed ${theme.fontBodyClass} ${theme.textPrimaryClass}`}
+                        >
+                          {line.text}
+                        </p>
+                      )}
                     </div>
 
                     {/* Active Inline Editing Box */}
@@ -876,13 +1019,14 @@ export function PoemCanvas({
                     {pendingProposal && (
                       <div className="mt-2 p-3.5 rounded-2xl border-2 border-dashed border-rose-300 bg-rose-50/80 shadow-xs animate-in fade-in duration-150">
                         <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-rose-200/80">
-                          <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-900">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-900 flex-wrap">
                             <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
                             <span>
-                              {pendingProposal.type === 'edit'
-                                ? `Proposed Edit by ${pendingProposal.proposerName}`
-                                : `Proposed Deletion by ${pendingProposal.proposerName}`}
+                              {pendingProposal.type === 'edit' ? 'Proposed Edit by' : 'Proposed Deletion by'}
                             </span>
+                            {renderNameBadge(
+                              pendingProposal.proposer === 'player1' ? room.player1 : room.player2
+                            )}
                           </div>
                           <span className="text-[10px] text-rose-500 font-mono">
                             Requires partner approval
@@ -961,20 +1105,28 @@ export function PoemCanvas({
           <div className="flex items-center gap-2">
             <span className="text-base">{theme.icon}</span>
             <div>
-              <p className="text-xs font-semibold text-stone-900 flex items-center gap-1.5">
+              <div className="text-xs font-semibold text-stone-900 flex items-center gap-1.5 flex-wrap">
                 {isMyTurn ? (
                   <span className="text-emerald-700 font-bold flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5 text-emerald-500" /> Your Turn to Rhyme
                   </span>
                 ) : (
-                  <span className="text-stone-600">
-                    Waiting for <span className="font-semibold text-stone-900">{partnerProfile.name}</span> to rhyme
+                  <span className="text-stone-600 flex items-center gap-1.5 flex-wrap">
+                    <span>Waiting for</span>
+                    {renderNameBadge(partnerProfile)}
+                    <span>to rhyme</span>
                   </span>
                 )}
-              </p>
+              </div>
               {lastLine && (
                 <p className="text-[11px] text-stone-500 italic truncate max-w-sm sm:max-w-md mt-0.5">
-                  Last rhyme was: "{lastLine.text}"
+                  {isGlimpseMode && !isGlimpseCompleted
+                    ? revealedWordCount === 0
+                      ? '🔒 Last line hidden (0 words shown in Glimpse Mode)'
+                      : `👁️ Last line glimpse: "...${
+                          extractGlimpseParts(lastLine.text, revealedWordCount).revealedWords
+                        }"`
+                    : `Last rhyme was: "${lastLine.text}"`}
                 </p>
               )}
             </div>
@@ -1004,8 +1156,9 @@ export function PoemCanvas({
 
           <div className="flex items-center justify-between pt-1">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-stone-400">
-                Writing as: {renderNameBadge(myProfile)}
+              <span className="text-[11px] text-stone-400 flex items-center gap-1.5">
+                <span>Writing as:</span>
+                {renderNameBadge(myProfile, 'Poet', onOpenNameModal)}
               </span>
             </div>
 

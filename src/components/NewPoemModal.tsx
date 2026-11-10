@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Download,
   AlertTriangle,
@@ -31,10 +31,24 @@ export function NewPoemModal({
   const [isResetting, setIsResetting] = useState(false);
 
   const [selectedMode, setSelectedMode] = useState<GameMode>(room.gameMode || 'classic');
-  const [targetLines, setTargetLines] = useState<number>(room.targetLineCount || 8);
-  const [revealedWords, setRevealedWords] = useState<number>(room.revealedWordCount ?? 2);
+  const [targetLinesInput, setTargetLinesInput] = useState<string>(String(room.targetLineCount || 8));
+  const [revealedWordsInput, setRevealedWordsInput] = useState<string>(String(room.revealedWordCount ?? 2));
+
+  useEffect(() => {
+    if (isOpen && room) {
+      setSelectedMode(room.gameMode || 'classic');
+      setTargetLinesInput(String(room.targetLineCount || 8));
+      setRevealedWordsInput(String(room.revealedWordCount ?? 2));
+    }
+  }, [isOpen, room.gameMode, room.targetLineCount, room.revealedWordCount]);
 
   if (!isOpen) return null;
+
+  const parsedLines = parseInt(targetLinesInput, 10);
+  const validLines = isNaN(parsedLines) ? 8 : Math.max(2, Math.min(1000, parsedLines));
+
+  const parsedWords = parseInt(revealedWordsInput, 10);
+  const validWords = isNaN(parsedWords) ? 2 : Math.max(0, Math.min(5, parsedWords));
 
   const handleDownloadJson = () => {
     const exportData = {
@@ -79,7 +93,7 @@ export function NewPoemModal({
   const handleExecuteReset = async () => {
     setIsResetting(true);
     try {
-      await onConfirmNewPoem(selectedMode, targetLines, revealedWords);
+      await onConfirmNewPoem(selectedMode, validLines, validWords);
       onClose();
       setStep(1);
       setHasDownloadedJson(false);
@@ -295,36 +309,48 @@ export function NewPoemModal({
                 </div>
 
                 {selectedMode === 'glimpse' && (
-                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-amber-200/60">
+                  <div className="space-y-2.5 pt-2 border-t border-amber-200/60">
                     <div>
                       <label className="block text-[10px] font-semibold text-amber-900 mb-1">
-                        Lines (2-998)
+                        Poem Length Before Reveal (2 - 1000 lines)
                       </label>
                       <input
-                        type="number"
-                        min={2}
-                        max={998}
-                        value={targetLines}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          setTargetLines(isNaN(val) ? 8 : Math.max(2, Math.min(998, val)));
-                        }}
+                        type="text"
+                        inputMode="numeric"
+                        value={targetLinesInput}
+                        onChange={(e) => setTargetLinesInput(e.target.value.replace(/[^0-9]/g, ''))}
+                        onBlur={() => setTargetLinesInput(String(validLines))}
+                        placeholder="Enter 2 to 1000"
                         className="w-full px-2.5 py-1.5 text-xs font-semibold bg-white border border-amber-300 rounded-lg text-stone-900 shadow-2xs"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] font-semibold text-amber-900 mb-1">
-                        Revealed Words (0-5)
+                        Revealed Words at End of Line (0 - 5 words)
                       </label>
+                      <div className="grid grid-cols-6 gap-1 mb-1.5">
+                        {[0, 1, 2, 3, 4, 5].map((w) => (
+                          <button
+                            key={w}
+                            type="button"
+                            onClick={() => setRevealedWordsInput(String(w))}
+                            className={`py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                              validWords === w
+                                ? 'bg-amber-700 text-white border-amber-700 shadow-2xs'
+                                : 'bg-white text-amber-950 border-amber-300 hover:bg-amber-100'
+                            }`}
+                          >
+                            {w}
+                          </button>
+                        ))}
+                      </div>
                       <input
-                        type="number"
-                        min={0}
-                        max={5}
-                        value={revealedWords}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          setRevealedWords(isNaN(val) ? 2 : Math.max(0, Math.min(5, val)));
-                        }}
+                        type="text"
+                        inputMode="numeric"
+                        value={revealedWordsInput}
+                        onChange={(e) => setRevealedWordsInput(e.target.value.replace(/[^0-9]/g, ''))}
+                        onBlur={() => setRevealedWordsInput(String(validWords))}
+                        placeholder="0 to 5"
                         className="w-full px-2.5 py-1.5 text-xs font-semibold bg-white border border-amber-300 rounded-lg text-stone-900 shadow-2xs"
                       />
                     </div>

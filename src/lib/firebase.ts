@@ -5,7 +5,7 @@ import {
   doc,
   setDoc,
   getDoc,
-  updateDoc,
+  getDocFromServer,
   runTransaction,
   onSnapshot,
   Unsubscribe
@@ -67,6 +67,17 @@ const resolvedConfig = {
 const app = !getApps().length ? initializeApp(resolvedConfig) : getApp();
 export const db = getFirestore(app, resolvedConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, 'rooms', 'connection-check'));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.error('Please check your Firebase configuration.');
+    }
+  }
+}
+testConnection();
 
 // Attempt silent authentication, but NEVER block execution if disabled in console
 export async function ensureAuth(): Promise<User | null> {
@@ -191,9 +202,9 @@ export async function addLineToRoom(
 }
 
 /**
- * Partial field updater using updateDoc.
- * Modifies ONLY the provided fields (e.g. messages, player profile, title)
- * without touching or overwriting the lines array!
+ * Partial field updater using setDoc with merge: true.
+ * Modifies ONLY the provided fields (e.g. gameMode, targetLineCount, revealedWordCount, player profile, title)
+ * without touching or overwriting the lines array, and guarantees write even if doc wasn't initialized yet!
  */
 export async function updateRoomFields(
   roomId: string,
@@ -201,12 +212,26 @@ export async function updateRoomFields(
 ): Promise<void> {
   const roomPath = `rooms/${roomId}`;
   const roomRef = doc(db, 'rooms', roomId);
+  const payload = {
+    ...fields,
+    updatedAt: Date.now(),
+  };
 
   try {
-    await updateDoc(roomRef, {
-      ...fields,
-      updatedAt: Date.now(),
-    });
+    const cached = localStorage.getItem(`poemplay_cache_${roomId}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      localStorage.setItem(
+        `poemplay_cache_${roomId}`,
+        JSON.stringify({ ...parsed, ...payload })
+      );
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    await setDoc(roomRef, payload, { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, roomPath);
   }

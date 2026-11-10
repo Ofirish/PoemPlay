@@ -237,8 +237,18 @@ export default function App() {
 
   // Game Mode Selection state (Default Glimpse Mode so line target & word reveal controls are immediately visible!)
   const [createGameMode, setCreateGameMode] = useState<GameMode>('glimpse');
-  const [createTargetLines, setCreateTargetLines] = useState<number>(8);
-  const [createRevealedWords, setCreateRevealedWords] = useState<number>(2);
+  const [createTargetLinesInput, setCreateTargetLinesInput] = useState<string>('8');
+  const [createRevealedWordsInput, setCreateRevealedWordsInput] = useState<string>('2');
+
+  const parsedCreateLines = parseInt(createTargetLinesInput, 10);
+  const validCreateTargetLines = isNaN(parsedCreateLines)
+    ? 8
+    : Math.max(2, Math.min(1000, parsedCreateLines));
+
+  const parsedCreateWords = parseInt(createRevealedWordsInput, 10);
+  const validCreateRevealedWords = isNaN(parsedCreateWords)
+    ? 2
+    : Math.max(0, Math.min(5, parsedCreateWords));
 
   // Join Existing Room state (magic link or room key, both viable)
   const [joinLinkOrKey, setJoinLinkOrKey] = useState('');
@@ -278,7 +288,7 @@ export default function App() {
     setIsLoadingRoom(true);
     let isMounted = true;
 
-    // Setup real-time listener with automatic line deduplication and line preservation
+    // Setup real-time listener with automatic sync for mode, profiles, and lines
     const unsubscribe = subscribeToRoom(
       roomId,
       (updatedRoom) => {
@@ -286,11 +296,22 @@ export default function App() {
         if (updatedRoom) {
           setRoom((prev) => {
             if (!prev) return updatedRoom;
-            // Merge lines by unique ID so concurrent submissions are never lost
-            const lineMap = new Map<string, PoemLine>();
-            (prev.lines || []).forEach((l) => lineMap.set(l.id, l));
-            (updatedRoom.lines || []).forEach((l) => lineMap.set(l.id, l));
-            const mergedLines = Array.from(lineMap.values());
+            // If updatedRoom explicitly cleared lines (e.g. New Poem reset), respect empty array
+            if ((updatedRoom.lines || []).length === 0 && (prev.lines || []).length > 0 && updatedRoom.updatedAt >= prev.updatedAt) {
+              return updatedRoom;
+            }
+            // Merge remote lines with any very recent optimistic local lines (< 4s old)
+            const remoteIds = new Set((updatedRoom.lines || []).map((l) => l.id));
+            const recentOptimistic = (prev.lines || []).filter(
+              (l) => !remoteIds.has(l.id) && Date.now() - l.timestamp < 4000
+            );
+            const mergedLines = [...(updatedRoom.lines || []), ...recentOptimistic].map((l) => ({
+              ...l,
+              authorName:
+                l.author === 'player1'
+                  ? updatedRoom.player1?.name || l.authorName
+                  : updatedRoom.player2?.name || l.authorName,
+            }));
             mergedLines.sort((a, b) => a.timestamp - b.timestamp);
 
             return {
@@ -298,8 +319,8 @@ export default function App() {
               lines: mergedLines,
             };
           });
-          setIsLoadingRoom(false);
         }
+        setIsLoadingRoom(false);
       },
       (err) => {
         console.error('Subscription error:', err);
@@ -370,14 +391,14 @@ export default function App() {
           authorName: creatorName.trim() || 'Poet One',
           text:
             createGameMode === 'glimpse'
-              ? `Glimpse Mode initialized! Target: ${createTargetLines} lines. Revealing last ${createRevealedWords} word(s) per line.`
+              ? `Glimpse Mode initialized! Target: ${validCreateTargetLines} lines. Revealing last ${validCreateRevealedWords} word(s) per line.`
               : 'Canvas initialized. Ready to rhyme!',
           timestamp: Date.now(),
         },
       ],
       gameMode: createGameMode,
-      targetLineCount: Math.max(2, Math.min(998, Number(createTargetLines) || 8)),
-      revealedWordCount: Math.max(0, Math.min(5, Number(createRevealedWords) ?? 2)),
+      targetLineCount: validCreateTargetLines,
+      revealedWordCount: validCreateRevealedWords,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -554,7 +575,7 @@ export default function App() {
     const selectedMode = newMode || room.gameMode || 'classic';
     const selectedTargetLines = Math.max(
       2,
-      Math.min(998, newTargetLines || room.targetLineCount || 8)
+      Math.min(1000, newTargetLines || room.targetLineCount || 8)
     );
     const selectedRevealedWords = Math.max(
       0,
@@ -780,14 +801,35 @@ export default function App() {
 
 
 
-  // Participant profile update handler: updates ONLY the modified profile
+  // Participant profile update handler: updates profile AND syncs authorName across existing lines & proposals
   const handleSaveProfile = async (updatedProfile: ParticipantProfile) => {
     if (!room) return;
     const isPlayer1 = currentPlayerRole === 'player1';
     const profileKey = isPlayer1 ? 'player1' : 'player2';
 
-    setRoom((prev) => (prev ? { ...prev, [profileKey]: updatedProfile, updatedAt: Date.now() } : null));
-    await updateRoomFields(room.id, { [profileKey]: updatedProfile });
+    const updatedLines = (room.lines || []).map((l) =>
+      l.author === currentPlayerRole ? { ...l, authorName: updatedProfile.name } : l
+    );
+    const updatedProposals = (room.proposals || []).map((p) =>
+      p.proposer === currentPlayerRole ? { ...p, proposerName: updatedProfile.name } : p
+    );
+
+    setRoom((prev) =>
+      prev
+        ? {
+            ...prev,
+            [profileKey]: updatedProfile,
+            lines: updatedLines,
+            proposals: updatedProposals,
+            updatedAt: Date.now(),
+          }
+        : null
+    );
+    await updateRoomFields(room.id, {
+      [profileKey]: updatedProfile,
+      lines: updatedLines,
+      proposals: updatedProposals,
+    });
   };
 
   const currentTheme = THEMES[currentThemeId] || THEMES['lined-notebook'];
@@ -974,54 +1016,98 @@ export default function App() {
 
                   {/* Glimpse Mode Custom Settings */}
                   {createGameMode === 'glimpse' && (
-                    <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl space-y-3 animate-in fade-in duration-150">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
-                        <Eye className="w-4 h-4 text-amber-600" />
-                        <span>Glimpse Rules & Reveal Settings</span>
+                    <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl space-y-3.5 animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between text-xs font-bold text-amber-900">
+                        <span className="flex items-center gap-1.5">
+                          <Eye className="w-4 h-4 text-amber-600" />
+                          <span>Glimpse Rules & Reveal Settings</span>
+                        </span>
+                        <span className="text-[10px] font-mono bg-amber-200/80 text-amber-950 px-2 py-0.5 rounded-md">
+                          Applies to Both Poets
+                        </span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-3">
                         <div>
-                          <label className="block text-[11px] font-semibold text-amber-900 mb-1">
-                            Set Line Count (2 - 998)
-                          </label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] font-bold text-amber-950">
+                              Poem Length Before Reveal (2 - 1000 lines)
+                            </label>
+                          </div>
                           <input
-                            type="number"
-                            min={2}
-                            max={998}
-                            value={createTargetLines}
+                            type="text"
+                            inputMode="numeric"
+                            value={createTargetLinesInput}
                             onChange={(e) => {
-                              const val = parseInt(e.target.value, 10);
-                              setCreateTargetLines(isNaN(val) ? 8 : Math.max(2, Math.min(998, val)));
+                              const raw = e.target.value.replace(/[^0-9]/g, '');
+                              setCreateTargetLinesInput(raw);
                             }}
-                            className="w-full px-3 py-2 text-xs font-semibold bg-white border border-amber-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-stone-900 shadow-2xs"
-                            required
+                            onBlur={() => {
+                              setCreateTargetLinesInput(String(validCreateTargetLines));
+                            }}
+                            placeholder="Enter any number from 2 to 1000"
+                            className="w-full px-3 py-2 text-xs font-bold bg-white border border-amber-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-stone-900 shadow-2xs"
                           />
-                          <p className="text-[10px] text-amber-700 mt-1">
-                            Full poem unveils on line {createTargetLines}!
+                          <div className="flex items-center gap-1 flex-wrap mt-1.5">
+                            <span className="text-[10px] text-amber-800 mr-0.5">Presets:</span>
+                            {[4, 6, 8, 12, 16, 20, 50, 100].map((num) => (
+                              <button
+                                key={num}
+                                type="button"
+                                onClick={() => setCreateTargetLinesInput(String(num))}
+                                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                                  validCreateTargetLines === num
+                                    ? 'bg-amber-700 text-white border-amber-700 shadow-2xs'
+                                    : 'bg-white text-amber-900 border-amber-300 hover:bg-amber-100'
+                                }`}
+                              >
+                                {num}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-amber-800 mt-1">
+                            Full poem unveils on line <span className="font-bold underline">{validCreateTargetLines}</span>!
                           </p>
                         </div>
 
                         <div>
-                          <label className="block text-[11px] font-semibold text-amber-900 mb-1">
-                            Revealed Trailing Words (0 - 5)
+                          <label className="block text-[11px] font-bold text-amber-950 mb-1.5">
+                            Words Revealed at End of Line (0 - 5 words)
                           </label>
+                          <div className="grid grid-cols-6 gap-1.5 mb-2">
+                            {[0, 1, 2, 3, 4, 5].map((w) => (
+                              <button
+                                key={w}
+                                type="button"
+                                onClick={() => setCreateRevealedWordsInput(String(w))}
+                                className={`py-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                                  validCreateRevealedWords === w
+                                    ? 'bg-amber-700 text-white border-amber-700 shadow-xs'
+                                    : 'bg-white text-amber-950 border-amber-300 hover:bg-amber-100'
+                                }`}
+                              >
+                                {w} {w === 1 ? 'word' : 'words'}
+                              </button>
+                            ))}
+                          </div>
                           <input
-                            type="number"
-                            min={0}
-                            max={5}
-                            value={createRevealedWords}
+                            type="text"
+                            inputMode="numeric"
+                            value={createRevealedWordsInput}
                             onChange={(e) => {
-                              const val = parseInt(e.target.value, 10);
-                              setCreateRevealedWords(isNaN(val) ? 2 : Math.max(0, Math.min(5, val)));
+                              const raw = e.target.value.replace(/[^0-9]/g, '');
+                              setCreateRevealedWordsInput(raw);
                             }}
-                            className="w-full px-3 py-2 text-xs font-semibold bg-white border border-amber-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-stone-900 shadow-2xs"
-                            required
+                            onBlur={() => {
+                              setCreateRevealedWordsInput(String(validCreateRevealedWords));
+                            }}
+                            placeholder="Enter 0, 1, 2, 3, 4, or 5"
+                            className="w-full px-3 py-2 text-xs font-bold bg-white border border-amber-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-stone-900 shadow-2xs"
                           />
-                          <p className="text-[10px] text-amber-700 mt-1">
-                            {createRevealedWords === 0
-                              ? 'Fully blind! (0 words revealed)'
-                              : `Last ${createRevealedWords} word(s) revealed at line end`}
+                          <p className="text-[10px] text-amber-800 mt-1">
+                            {validCreateRevealedWords === 0
+                              ? 'Fully blind! (0 words revealed at the end of each line)'
+                              : `Last ${validCreateRevealedWords} word(s) revealed at the end of each line`}
                           </p>
                         </div>
                       </div>
@@ -1271,6 +1357,8 @@ export default function App() {
             onWithdrawProposal={handleWithdrawProposal}
             onChangeTitle={handleChangeTitle}
             onOpenNewPoemModal={() => setIsNewPoemModalOpen(true)}
+            onOpenGameModeModal={() => setIsGameModeModalOpen(true)}
+            onOpenNameModal={() => setIsNameModalOpen(true)}
           />
         )}
       </main>

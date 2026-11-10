@@ -13,6 +13,7 @@ import {
   Sliders,
 } from 'lucide-react';
 import { RoomData, ExportBorderStyle } from '../types';
+import { renderNameBadge, formatBadgeDisplayText, COLOR_OPTIONS } from './NamePaletteModal';
 import confetti from 'canvas-confetti';
 import { jsPDF } from 'jspdf';
 
@@ -210,6 +211,15 @@ export function ExportStudioModal({
     const maxVerseWidth = width - verseStartX - (isNotebook ? 45 : 80);
 
     room.lines.forEach((line, idx) => {
+      const authorProfile = line.author === 'player1' ? room.player1 : room.player2;
+      const authorColor =
+        COLOR_OPTIONS.find((c) => c.id === authorProfile.color) || COLOR_OPTIONS[0];
+      const formattedAuthorBadge = formatBadgeDisplayText(
+        authorProfile.name,
+        authorProfile.symbol,
+        authorProfile.style
+      );
+
       if (isNotebook) {
         // Line Number in notebook margin strictly to left of red line (x=90)
         ctx.textAlign = 'right';
@@ -221,17 +231,16 @@ export function ExportStudioModal({
         // Author Symbol in margin if showPoetNames
         if (showPoetNames) {
           ctx.font = '11px sans-serif';
-          ctx.fillStyle = line.author === 'player1' ? '#B91C1C' : '#047857';
-          const sym = line.author === 'player1' ? room.player1.symbol : room.player2.symbol;
-          ctx.fillText(sym, 84, currentY);
+          ctx.fillStyle = authorColor.hexText;
+          ctx.fillText(authorProfile.symbol || '🪶', 84, currentY);
         }
         ctx.textAlign = 'left';
       } else {
         // Standard themes: Poet Name & Line Number ABOVE the verse line!
         if (showPoetNames) {
           ctx.font = 'bold 11px sans-serif';
-          ctx.fillStyle = line.author === 'player1' ? '#B91C1C' : '#047857';
-          const authorLabel = `#${String(idx + 1).padStart(2, '0')} · ${line.author === 'player1' ? room.player1.symbol : room.player2.symbol} ${line.authorName}`;
+          ctx.fillStyle = authorColor.hexText;
+          const authorLabel = `#${String(idx + 1).padStart(2, '0')} · ${formattedAuthorBadge}`;
           ctx.fillText(authorLabel, verseStartX, currentY);
           currentY += 18;
         }
@@ -272,10 +281,11 @@ export function ExportStudioModal({
         ctx.fillText(wrappedText, verseStartX, rowY);
       });
 
-      currentY += lineList.length * 24 + (showPoetNames ? 14 : 10);
+      currentY += lineList.length * 24 + (showPoetNames ? 10 : 6);
 
-      if ((idx + 1) % 2 === 0) {
-        currentY += 8;
+      // 1-line space ONLY if consecutive lines were written by the same poet
+      if (room.lines[idx + 1]?.author === line.author) {
+        currentY += 24;
       }
     });
 
@@ -756,30 +766,41 @@ export function ExportStudioModal({
                     ) : (
                       room.lines.map((line, idx) => {
                         const isNotebook = selectedBorder === 'lined-notebook';
+                        const authorProfile =
+                          line.author === 'player1' ? room.player1 : room.player2;
+                        const isSameAuthorNext =
+                          room.lines[idx + 1]?.author === line.author;
+
                         if (isNotebook) {
                           return (
-                            <div
-                              key={line.id}
-                              className="flex items-end min-h-[42px] pb-1 border-b border-sky-300 group transition-colors"
-                            >
-                              {/* Notebook Margin strictly left of red line: Number & optional author symbol */}
-                              <div className="shrink-0 w-14 sm:w-20 flex items-center justify-end gap-1 pr-2.5 sm:pr-3 pb-0.5">
-                                <span className="text-[11px] font-mono text-stone-400 select-none">
-                                  {String(idx + 1).padStart(2, '0')}
-                                </span>
-                                {showPoetNames && (
-                                  <span className="text-xs" title={line.authorName}>
-                                    {line.author === 'player1' ? room.player1.symbol : room.player2.symbol}
+                            <div key={line.id}>
+                              <div className="flex items-end min-h-[42px] pb-1 border-b border-sky-300 group transition-colors">
+                                {/* Notebook Margin strictly left of red line: Number & optional author symbol */}
+                                <div className="shrink-0 w-14 sm:w-20 flex items-center justify-end gap-1 pr-2.5 sm:pr-3 pb-0.5">
+                                  <span className="text-[11px] font-mono text-stone-400 select-none">
+                                    {String(idx + 1).padStart(2, '0')}
                                   </span>
-                                )}
-                              </div>
+                                  {showPoetNames && (
+                                    <span className="text-xs" title={authorProfile.name}>
+                                      {authorProfile.symbol}
+                                    </span>
+                                  )}
+                                </div>
 
-                              {/* Verse text strictly right of red line, seated squarely on blue line */}
-                              <div className="flex-1 min-w-0 pl-3 sm:pl-5 pb-0.5">
-                                <span className="text-base sm:text-lg text-stone-900 leading-snug tracking-wide block whitespace-normal break-words">
-                                  {line.text}
-                                </span>
+                                {/* Verse text strictly right of red line, seated squarely on blue line */}
+                                <div className="flex-1 min-w-0 pl-3 sm:pl-5 pb-0.5 flex items-center gap-2 flex-wrap">
+                                  {showPoetNames && renderNameBadge(authorProfile)}
+                                  <span className="text-base sm:text-lg text-stone-900 leading-snug tracking-wide block whitespace-normal break-words">
+                                    {line.text}
+                                  </span>
+                                </div>
                               </div>
+                              {isSameAuthorNext && (
+                                <div className="flex items-end min-h-[42px] border-b border-sky-300 select-none">
+                                  <div className="shrink-0 w-14 sm:w-20" />
+                                  <div className="flex-1 pl-3 sm:pl-5" />
+                                </div>
+                              )}
                             </div>
                           );
                         }
@@ -788,7 +809,9 @@ export function ExportStudioModal({
                         return (
                           <div
                             key={line.id}
-                            className="group rounded-xl p-2 transition-colors space-y-1"
+                            className={`group rounded-xl p-2 transition-colors space-y-1 ${
+                              isSameAuthorNext ? 'mb-5' : ''
+                            }`}
                           >
                             {/* Poet Name & Number ABOVE the line */}
                             {showPoetNames && (
@@ -796,9 +819,7 @@ export function ExportStudioModal({
                                 <span className="text-[11px] font-mono font-bold text-stone-400 select-none">
                                   #{String(idx + 1).padStart(2, '0')}
                                 </span>
-                                <span className="text-xs font-serif italic text-stone-600">
-                                  {line.author === 'player1' ? room.player1.symbol : room.player2.symbol} {line.authorName}
-                                </span>
+                                {renderNameBadge(authorProfile)}
                               </div>
                             )}
 
@@ -965,24 +986,21 @@ function renderExportHeader(headerStyle: string, room: RoomData, showPoetNames: 
         <h1 className="text-2xl sm:text-3xl font-bold text-stone-900 tracking-tight mb-3">
           {room.title || 'Untitled Collaborative Poem'}
         </h1>
-        <div className="flex items-center justify-between text-xs text-stone-500">
+        <div className="flex items-center justify-between text-xs text-stone-500 flex-wrap gap-2">
           {showPoetNames ? (
             <>
               <div className="flex items-center gap-1.5">
-                <span>{room.player1.symbol}</span>
-                <span className="font-semibold text-stone-800">{room.player1.name}</span>
-                <span className="text-stone-400">(Poet 1)</span>
+                {renderNameBadge(room.player1, 'Poet 1')}
               </div>
               <span className="text-stone-300">✦</span>
               <div className="flex items-center gap-1.5">
-                <span className="text-stone-400">(Poet 2)</span>
-                <span className="font-semibold text-stone-800">{room.player2.name}</span>
-                <span>{room.player2.symbol}</span>
+                {renderNameBadge(room.player2, 'Poet 2')}
               </div>
             </>
           ) : (
-            <span className="text-stone-500 italic font-serif">
-              Penned with Current Poet: {(room.turn || 'player1') === 'player1' ? room.player1.name : room.player2.name} ({(room.turn || 'player1') === 'player1' ? room.player1.symbol : room.player2.symbol})
+            <span className="text-stone-500 italic font-serif flex items-center gap-1.5">
+              <span>Penned with Current Poet:</span>
+              {renderNameBadge((room.turn || 'player1') === 'player1' ? room.player1 : room.player2)}
             </span>
           )}
         </div>
