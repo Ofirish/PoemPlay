@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Feather,
-  MessageSquare,
+  LogOut,
+  Eye,
   Share2,
   Check,
   Download,
@@ -14,10 +15,8 @@ import {
 } from 'lucide-react';
 
 interface FloatingWheelMenuProps {
-  onToggleChat: () => void;
-  isChatOpen: boolean;
-  unreadChatCount: number;
-  hasNewPartnerMessage: boolean;
+  onBackToLogin: () => void;
+  onOpenGameModeModal: () => void;
   onCopyMagicLink: () => void;
   hasCopiedLink: boolean;
   onOpenExportStudio: () => void;
@@ -29,10 +28,10 @@ interface FloatingWheelMenuProps {
 
 interface MenuItem {
   id: string;
-  shortLabel: string; // Prompt: "add a one-word label under each button that will tell the player what the button contains"
+  shortLabel: string; // One-word label under each button
   fullLabel: string;
   icon: React.ReactNode;
-  colorClass: string; // Prompt: colorful buttons, especially theme
+  colorClass: string;
   onClick: () => void;
   badge?: number | string | null;
   highlight?: boolean;
@@ -44,10 +43,8 @@ interface ItemCoordinate {
 }
 
 export function FloatingWheelMenu({
-  onToggleChat,
-  isChatOpen,
-  unreadChatCount,
-  hasNewPartnerMessage,
+  onBackToLogin,
+  onOpenGameModeModal,
   onCopyMagicLink,
   hasCopiedLink,
   onOpenExportStudio,
@@ -160,25 +157,35 @@ export function FloatingWheelMenu({
     }
   };
 
-  // Menu items with vibrant colors, especially the Theme ("Steam") button and 1-word labels
+  // Menu items with vibrant colors and 1-word labels
   const menuItems: MenuItem[] = [
     {
-      id: 'chat',
-      shortLabel: 'Chat',
-      fullLabel: isChatOpen ? 'Close Chat' : 'Rhyme Chat',
-      icon: <MessageSquare className="w-4 h-4" />,
+      id: 'rules',
+      shortLabel: 'Rules',
+      fullLabel: 'Game Mode & Glimpse Rules',
+      icon: <Eye className="w-4 h-4" />,
       colorClass:
-        'bg-gradient-to-tr from-rose-500 to-pink-600 text-white shadow-rose-500/30 border-2 border-rose-200',
+        'bg-gradient-to-tr from-amber-500 to-yellow-600 text-white shadow-amber-500/30 border-2 border-amber-200',
       onClick: () => {
-        onToggleChat();
+        onOpenGameModeModal();
         setIsOpen(false);
       },
-      badge: unreadChatCount > 0 ? unreadChatCount : null,
-      highlight: hasNewPartnerMessage,
+    },
+    {
+      id: 'exit',
+      shortLabel: 'Exit',
+      fullLabel: 'Back to Setup / Exit Room',
+      icon: <LogOut className="w-4 h-4" />,
+      colorClass:
+        'bg-gradient-to-tr from-rose-500 to-red-600 text-white shadow-rose-500/30 border-2 border-rose-200',
+      onClick: () => {
+        onBackToLogin();
+        setIsOpen(false);
+      },
     },
     {
       id: 'themes',
-      shortLabel: 'Theme', // Prompt: "Make the Steam [Theme] button colorful and add a one-word label under each button"
+      shortLabel: 'Theme',
       fullLabel: 'Canvas Themes',
       icon: (
         <span className="relative flex items-center justify-center">
@@ -237,7 +244,7 @@ export function FloatingWheelMenu({
       fullLabel: 'New Poem',
       icon: <RotateCcw className="w-4 h-4" />,
       colorClass:
-        'bg-gradient-to-tr from-amber-500 to-orange-600 text-white shadow-amber-500/30 border-2 border-amber-200',
+        'bg-gradient-to-tr from-orange-500 to-amber-600 text-white shadow-orange-500/30 border-2 border-orange-200',
       onClick: () => {
         onOpenNewPoemModal();
         setIsOpen(false);
@@ -258,10 +265,8 @@ export function FloatingWheelMenu({
   ];
 
   /**
-   * Adaptive Geometry Calculation to Guarantee Zero Overlap:
-   * When in a corner or by an edge:
-   * Instead of cramming 7 buttons into a narrow arc (which caused overlaps),
-   * we use a staggered multi-tier radial fan in corners, and a generous radius along edges.
+   * Adaptive Geometry Calculation:
+   * Dynamically calculates coordinates for any number of menu items in open space, edges, or corners.
    */
   const computeCoordinates = (): ItemCoordinate[] => {
     const cx = position.x + 28;
@@ -280,117 +285,69 @@ export function FloatingWheelMenu({
     const isNearTop = distTop < EDGE_THRESH;
     const isNearBottom = distBottom < EDGE_THRESH;
 
-    // Corner cases: 2-tier staggered fan so buttons have massive spacing and never overlap!
+    // Determine arc angles
+    let startAngle = 0;
+    let endAngle = Math.PI * 2;
+    let radius = 120;
+
     if (isNearRight && isNearBottom) {
-      // Bottom-Right Corner: fan up and left
-      // Tier 1 (3 items): R = 78px, angles 185°, 225°, 265°
-      // Tier 2 (4 items): R = 146px, angles 178°, 208°, 238°, 268°
-      const tier1Angles = [185, 225, 265].map((d) => (d * Math.PI) / 180);
-      const tier2Angles = [178, 208, 238, 268].map((d) => (d * Math.PI) / 180);
-      return [
-        { tx: Math.round(Math.cos(tier1Angles[0]) * 78), ty: Math.round(Math.sin(tier1Angles[0]) * 78) },
-        { tx: Math.round(Math.cos(tier1Angles[1]) * 78), ty: Math.round(Math.sin(tier1Angles[1]) * 78) },
-        { tx: Math.round(Math.cos(tier1Angles[2]) * 78), ty: Math.round(Math.sin(tier1Angles[2]) * 78) },
-        { tx: Math.round(Math.cos(tier2Angles[0]) * 146), ty: Math.round(Math.sin(tier2Angles[0]) * 146) },
-        { tx: Math.round(Math.cos(tier2Angles[1]) * 146), ty: Math.round(Math.sin(tier2Angles[1]) * 146) },
-        { tx: Math.round(Math.cos(tier2Angles[2]) * 146), ty: Math.round(Math.sin(tier2Angles[2]) * 146) },
-        { tx: Math.round(Math.cos(tier2Angles[3]) * 146), ty: Math.round(Math.sin(tier2Angles[3]) * 146) },
-      ];
-    }
-
-    if (isNearLeft && isNearBottom) {
-      // Bottom-Left Corner: fan up and right
-      const tier1Angles = [275, 315, 355].map((d) => (d * Math.PI) / 180);
-      const tier2Angles = [272, 302, 332, 2].map((d) => (d * Math.PI) / 180);
-      return [
-        { tx: Math.round(Math.cos(tier1Angles[0]) * 78), ty: Math.round(Math.sin(tier1Angles[0]) * 78) },
-        { tx: Math.round(Math.cos(tier1Angles[1]) * 78), ty: Math.round(Math.sin(tier1Angles[1]) * 78) },
-        { tx: Math.round(Math.cos(tier1Angles[2]) * 78), ty: Math.round(Math.sin(tier1Angles[2]) * 78) },
-        { tx: Math.round(Math.cos(tier2Angles[0]) * 146), ty: Math.round(Math.sin(tier2Angles[0]) * 146) },
-        { tx: Math.round(Math.cos(tier2Angles[1]) * 146), ty: Math.round(Math.sin(tier2Angles[1]) * 146) },
-        { tx: Math.round(Math.cos(tier2Angles[2]) * 146), ty: Math.round(Math.sin(tier2Angles[2]) * 146) },
-        { tx: Math.round(Math.cos(tier2Angles[3]) * 146), ty: Math.round(Math.sin(tier2Angles[3]) * 146) },
-      ];
-    }
-
-    if (isNearRight && isNearTop) {
-      // Top-Right Corner: fan down and left
-      const tier1Angles = [95, 135, 175].map((d) => (d * Math.PI) / 180);
-      const tier2Angles = [92, 122, 152, 182].map((d) => (d * Math.PI) / 180);
-      return [
-        { tx: Math.round(Math.cos(tier1Angles[0]) * 78), ty: Math.round(Math.sin(tier1Angles[0]) * 78) },
-        { tx: Math.round(Math.cos(tier1Angles[1]) * 78), ty: Math.round(Math.sin(tier1Angles[1]) * 78) },
-        { tx: Math.round(Math.cos(tier1Angles[2]) * 78), ty: Math.round(Math.sin(tier1Angles[2]) * 78) },
-        { tx: Math.round(Math.cos(tier2Angles[0]) * 146), ty: Math.round(Math.sin(tier2Angles[0]) * 146) },
-        { tx: Math.round(Math.cos(tier2Angles[1]) * 146), ty: Math.round(Math.sin(tier2Angles[1]) * 146) },
-        { tx: Math.round(Math.cos(tier2Angles[2]) * 146), ty: Math.round(Math.sin(tier2Angles[2]) * 146) },
-        { tx: Math.round(Math.cos(tier2Angles[3]) * 146), ty: Math.round(Math.sin(tier2Angles[3]) * 146) },
-      ];
-    }
-
-    if (isNearLeft && isNearTop) {
-      // Top-Left Corner: fan down and right
-      const tier1Angles = [5, 45, 85].map((d) => (d * Math.PI) / 180);
-      const tier2Angles = [2, 32, 62, 92].map((d) => (d * Math.PI) / 180);
-      return [
-        { tx: Math.round(Math.cos(tier1Angles[0]) * 78), ty: Math.round(Math.sin(tier1Angles[0]) * 78) },
-        { tx: Math.round(Math.cos(tier1Angles[1]) * 78), ty: Math.round(Math.sin(tier1Angles[1]) * 78) },
-        { tx: Math.round(Math.cos(tier1Angles[2]) * 78), ty: Math.round(Math.sin(tier1Angles[2]) * 78) },
-        { tx: Math.round(Math.cos(tier2Angles[0]) * 146), ty: Math.round(Math.sin(tier2Angles[0]) * 146) },
-        { tx: Math.round(Math.cos(tier2Angles[1]) * 146), ty: Math.round(Math.sin(tier2Angles[1]) * 146) },
-        { tx: Math.round(Math.cos(tier2Angles[2]) * 146), ty: Math.round(Math.sin(tier2Angles[2]) * 146) },
-        { tx: Math.round(Math.cos(tier2Angles[3]) * 146), ty: Math.round(Math.sin(tier2Angles[3]) * 146) },
-      ];
-    }
-
-    // Single edge cases: wide 160° arc with expanded 130px radius (giving 58px center-to-center spacing)
-    const R_EDGE = 130;
-    if (isNearRight) {
-      // Half-wheel radiating leftward (100° to 260°)
-      const start = (100 * Math.PI) / 180;
-      const end = (260 * Math.PI) / 180;
+      startAngle = Math.PI; // 180°
+      endAngle = Math.PI * 1.5; // 270°
+    } else if (isNearLeft && isNearBottom) {
+      startAngle = Math.PI * 1.5; // 270°
+      endAngle = Math.PI * 2; // 360°
+    } else if (isNearRight && isNearTop) {
+      startAngle = Math.PI * 0.5; // 90°
+      endAngle = Math.PI; // 180°
+    } else if (isNearLeft && isNearTop) {
+      startAngle = 0; // 0°
+      endAngle = Math.PI * 0.5; // 90°
+    } else if (isNearRight) {
+      startAngle = (100 * Math.PI) / 180;
+      endAngle = (260 * Math.PI) / 180;
+      radius = 130;
+    } else if (isNearLeft) {
+      startAngle = (-80 * Math.PI) / 180;
+      endAngle = (80 * Math.PI) / 180;
+      radius = 130;
+    } else if (isNearBottom) {
+      startAngle = (190 * Math.PI) / 180;
+      endAngle = (350 * Math.PI) / 180;
+      radius = 130;
+    } else if (isNearTop) {
+      startAngle = (10 * Math.PI) / 180;
+      endAngle = (170 * Math.PI) / 180;
+      radius = 130;
+    } else {
+      // Full circle in open space
+      const step = (2 * Math.PI) / menuItems.length;
       return menuItems.map((_, i) => {
-        const angle = start + (end - start) * (i / (menuItems.length - 1));
-        return { tx: Math.round(Math.cos(angle) * R_EDGE), ty: Math.round(Math.sin(angle) * R_EDGE) };
+        const angle = i * step - Math.PI / 2;
+        return { tx: Math.round(Math.cos(angle) * 116), ty: Math.round(Math.sin(angle) * 116) };
       });
     }
 
-    if (isNearLeft) {
-      // Half-wheel radiating rightward (-80° to 80°)
-      const start = (-80 * Math.PI) / 180;
-      const end = (80 * Math.PI) / 180;
+    // Corner cases: 2-tier staggered fan so all 8 items fit comfortably
+    if ((isNearRight || isNearLeft) && (isNearTop || isNearBottom)) {
+      const innerRadius = 78;
+      const outerRadius = 146;
+      const halfCount = Math.ceil(menuItems.length / 2);
       return menuItems.map((_, i) => {
-        const angle = start + (end - start) * (i / (menuItems.length - 1));
-        return { tx: Math.round(Math.cos(angle) * R_EDGE), ty: Math.round(Math.sin(angle) * R_EDGE) };
+        const isOuter = i >= halfCount;
+        const tierIndex = isOuter ? i - halfCount : i;
+        const tierTotal = isOuter ? menuItems.length - halfCount : halfCount;
+        const angleStep = (endAngle - startAngle) / Math.max(1, tierTotal - 1);
+        const angle = startAngle + tierIndex * angleStep;
+        const r = isOuter ? outerRadius : innerRadius;
+        return { tx: Math.round(Math.cos(angle) * r), ty: Math.round(Math.sin(angle) * r) };
       });
     }
 
-    if (isNearBottom) {
-      // Half-wheel radiating upward (190° to 350°)
-      const start = (190 * Math.PI) / 180;
-      const end = (350 * Math.PI) / 180;
-      return menuItems.map((_, i) => {
-        const angle = start + (end - start) * (i / (menuItems.length - 1));
-        return { tx: Math.round(Math.cos(angle) * R_EDGE), ty: Math.round(Math.sin(angle) * R_EDGE) };
-      });
-    }
-
-    if (isNearTop) {
-      // Half-wheel radiating downward (10° to 170°)
-      const start = (10 * Math.PI) / 180;
-      const end = (170 * Math.PI) / 180;
-      return menuItems.map((_, i) => {
-        const angle = start + (end - start) * (i / (menuItems.length - 1));
-        return { tx: Math.round(Math.cos(angle) * R_EDGE), ty: Math.round(Math.sin(angle) * R_EDGE) };
-      });
-    }
-
-    // Open space: 360-degree full circle with 116px radius (giving 97px center-to-center spacing)
-    const R_OPEN = 116;
-    const step = (2 * Math.PI) / menuItems.length;
+    // Edge cases
+    const angleStep = (endAngle - startAngle) / Math.max(1, menuItems.length - 1);
     return menuItems.map((_, i) => {
-      const angle = i * step - Math.PI / 2;
-      return { tx: Math.round(Math.cos(angle) * R_OPEN), ty: Math.round(Math.sin(angle) * R_OPEN) };
+      const angle = startAngle + i * angleStep;
+      return { tx: Math.round(Math.cos(angle) * radius), ty: Math.round(Math.sin(angle) * radius) };
     });
   };
 
@@ -468,30 +425,17 @@ export function FloatingWheelMenu({
           }}
           onClick={handleHubClick}
           className={`relative w-14 h-14 rounded-full flex items-center justify-center text-white shadow-2xl cursor-grab active:cursor-grabbing transition-transform hover:scale-105 active:scale-95 border-2 ${
-            hasNewPartnerMessage
-              ? 'bg-gradient-to-tr from-rose-600 via-pink-600 to-rose-600 border-rose-300 ring-4 ring-rose-400 animate-pulse shadow-[0_0_30px_rgba(244,63,94,0.95)]'
-              : isOpen
+            isOpen
               ? 'bg-stone-800 border-amber-300 ring-2 ring-amber-400'
               : 'bg-stone-900 border-stone-700 hover:border-amber-400/80 shadow-black/40'
           }`}
           title={isOpen ? "Close Studio Menu" : "Studio Settings & Menu (Drag to move)"}
           aria-label="Studio Settings and Menu"
         >
-          {hasNewPartnerMessage && (
-            <span className="absolute -inset-1 rounded-full bg-rose-400 opacity-75 animate-ping pointer-events-none" />
-          )}
-
           {isOpen ? (
             <X className="w-5 h-5 text-amber-300 transition-transform rotate-0" />
           ) : (
             <Feather className="w-6 h-6 text-amber-300 transition-transform" />
-          )}
-
-          {/* Unread badge on hub when collapsed */}
-          {!isOpen && unreadChatCount > 0 && (
-            <span className="absolute -top-1 -right-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500 text-white border-2 border-white shadow-md animate-bounce">
-              {unreadChatCount}
-            </span>
           )}
         </div>
       </div>

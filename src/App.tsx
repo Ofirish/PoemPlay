@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Feather,
   Sparkles,
   RefreshCw,
   Link,
   LogIn,
+  LogOut,
   Copy,
   Check,
   AlertCircle,
@@ -20,7 +21,6 @@ import {
   PoemLine,
   PlayerRole,
   DesignThemeId,
-  ChatMessage,
   ParticipantProfile,
   LineProposal,
   GameMode,
@@ -34,7 +34,6 @@ import {
   updateRoomFields,
 } from './lib/firebase';
 import { PoemCanvas } from './components/PoemCanvas';
-import { CornerChat } from './components/CornerChat';
 import { FloatingWheelMenu } from './components/FloatingWheelMenu';
 import { NewPoemModal } from './components/NewPoemModal';
 import { ThemePickerModal } from './components/ThemePickerModal';
@@ -42,6 +41,7 @@ import { NamePaletteModal } from './components/NamePaletteModal';
 import { HelpModal } from './components/HelpModal';
 import { ExportStudioModal } from './components/ExportStudioModal';
 import { ThemeSuggestionModal } from './components/ThemeSuggestionModal';
+import { GameModeSettingsModal } from './components/GameModeSettingsModal';
 
 const POETIC_NAME_SUGGESTIONS = [
   'Ode to the Starlight',
@@ -205,17 +205,29 @@ export default function App() {
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isNewPoemModalOpen, setIsNewPoemModalOpen] = useState(false);
+  const [isGameModeModalOpen, setIsGameModeModalOpen] = useState(false);
   const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [unreadChatCount, setUnreadChatCount] = useState(0);
-  const [hasNewPartnerMessage, setHasNewPartnerMessage] = useState(false);
   const [showPoetNames, setShowPoetNames] = useState(true);
 
   const [dismissedSuggestionId, setDismissedSuggestionId] = useState<string | null>(null);
   const [showShareThemeToast, setShowShareThemeToast] = useState(false);
 
-  // Line scrolling from chat
-  const [highlightedLineNumber, setHighlightedLineNumber] = useState<number | null>(null);
+  // Exit Room / Back to Room Setup Handler
+  const handleBackToLogin = () => {
+    setRoom(null);
+    setRoomId('');
+    try {
+      localStorage.removeItem('poemplay_active_room_id');
+      localStorage.removeItem('poemplay_active_player_role');
+    } catch {
+      // ignore
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete('room');
+    url.searchParams.delete('poem');
+    url.searchParams.delete('player');
+    window.history.replaceState({}, '', url.toString());
+  };
 
   // Starting Screen state (Prompt: poem name suggestion, poet name, magic link creation/auto-generation, and enter existing room)
   const [startMode, setStartMode] = useState<'create' | 'join'>('create');
@@ -223,8 +235,8 @@ export default function App() {
   const [creatorName, setCreatorName] = useState('Poet One');
   const [customSecretKey, setCustomSecretKey] = useState(() => getRandomRoomKey());
 
-  // Game Mode Selection state
-  const [createGameMode, setCreateGameMode] = useState<GameMode>('classic');
+  // Game Mode Selection state (Default Glimpse Mode so line target & word reveal controls are immediately visible!)
+  const [createGameMode, setCreateGameMode] = useState<GameMode>('glimpse');
   const [createTargetLines, setCreateTargetLines] = useState<number>(8);
   const [createRevealedWords, setCreateRevealedWords] = useState<number>(2);
 
@@ -257,29 +269,7 @@ export default function App() {
     setCustomSecretKey(getRandomRoomKey());
   };
 
-  // Track chat unread and partner messages
-  const prevMessagesLengthRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!room) return;
-    if (isChatOpen) {
-      setUnreadChatCount(0);
-      setHasNewPartnerMessage(false);
-      prevMessagesLengthRef.current = room.messages.length;
-    } else {
-      if (prevMessagesLengthRef.current === null) {
-        // Initial room load: seed message count so initial welcome message doesn't trigger unread badge
-        prevMessagesLengthRef.current = room.messages.length;
-      } else if (room.messages.length > prevMessagesLengthRef.current) {
-        const diff = room.messages.length - prevMessagesLengthRef.current;
-        setUnreadChatCount((prev) => prev + diff);
-        const latestMsg = room.messages[room.messages.length - 1];
-        if (latestMsg && latestMsg.author !== currentPlayerRole) {
-          setHasNewPartnerMessage(true);
-        }
-        prevMessagesLengthRef.current = room.messages.length;
-      }
-    }
-  }, [room?.messages.length, isChatOpen, currentPlayerRole]);
+
 
   // Subscribe to room in Firestore when roomId is set
   useEffect(() => {
@@ -524,6 +514,31 @@ export default function App() {
     await updateRoomFields(room.id, { title: newTitle });
   };
 
+  // Real-time update of Game Mode settings (target lines & revealed words)
+  const handleUpdateGameSettings = async (
+    gameMode: GameMode,
+    targetLineCount: number,
+    revealedWordCount: number
+  ) => {
+    if (!room) return;
+    setRoom((prev) =>
+      prev
+        ? {
+            ...prev,
+            gameMode,
+            targetLineCount,
+            revealedWordCount,
+            updatedAt: Date.now(),
+          }
+        : null
+    );
+    await updateRoomFields(room.id, {
+      gameMode,
+      targetLineCount,
+      revealedWordCount,
+    });
+  };
+
   // Double-verified New Poem Action
   const handleConfirmNewPoem = async (
     newMode?: GameMode,
@@ -632,9 +647,9 @@ export default function App() {
   };
 
   // Line submission handler with atomic Firestore transaction:
-  // Guarantees lines from BOTH poets are preserved without race conditions!
+  // Guarantees lines from BOTH poets are preserved without race conditions and strict turn alternation!
   const handleSubmitLine = async (text: string) => {
-    if (!room) return;
+    if (!room || room.turn !== currentPlayerRole) return;
     const authorProfile =
       currentPlayerRole === 'player1' ? room.player1 : room.player2;
 
@@ -763,44 +778,7 @@ export default function App() {
     await updateRoomFields(room.id, { proposals: updatedProposals });
   };
 
-  // Chat message send handler: updates ONLY messages
-  const handleSendMessage = async (msg: Omit<ChatMessage, 'id' | 'timestamp'>) => {
-    if (!room) return;
-    const newMsg: ChatMessage = {
-      ...msg,
-      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      timestamp: Date.now(),
-      reactions: {},
-    };
 
-    const updatedMessages = [...room.messages, newMsg];
-    setRoom((prev) => (prev ? { ...prev, messages: updatedMessages, updatedAt: Date.now() } : null));
-    await updateRoomFields(room.id, { messages: updatedMessages });
-  };
-
-  // Chat message reaction handler: updates ONLY messages
-  const handleReactMessage = async (messageId: string, emoji: string) => {
-    if (!room) return;
-    const updatedMessages = room.messages.map((m) => {
-      if (m.id !== messageId) return m;
-      const reactions = { ...(m.reactions || {}) };
-      const currentList = reactions[emoji] || [];
-
-      if (currentList.includes(currentPlayerRole)) {
-        reactions[emoji] = currentList.filter((r) => r !== currentPlayerRole);
-        if (reactions[emoji].length === 0) {
-          delete reactions[emoji];
-        }
-      } else {
-        reactions[emoji] = [...currentList, currentPlayerRole];
-      }
-
-      return { ...m, reactions };
-    });
-
-    setRoom((prev) => (prev ? { ...prev, messages: updatedMessages, updatedAt: Date.now() } : null));
-    await updateRoomFields(room.id, { messages: updatedMessages });
-  };
 
   // Participant profile update handler: updates ONLY the modified profile
   const handleSaveProfile = async (updatedProfile: ParticipantProfile) => {
@@ -1230,8 +1208,8 @@ export default function App() {
   // Active Poem Canvas View - Clean in-game presentation (no header button overlaps!)
   return (
     <div className={`min-h-screen flex flex-col justify-between ${currentTheme.bgClass} transition-colors duration-300 relative`}>
-      {/* Pristine In-Game Header: Just brand watermark (all buttons are housed in the floating wheel menu & in-chat quill settings!) */}
-      <header className="sticky top-0 z-20 flex items-center justify-between px-4 sm:px-8 py-3.5 border-b border-stone-200/60 bg-white/70 backdrop-blur-md shadow-2xs">
+      {/* In-Game Header: Includes Game Mode Rules button and Back to Setup / Exit Room button */}
+      <header className="sticky top-0 z-20 flex items-center justify-between px-4 sm:px-8 py-3 border-b border-stone-200/60 bg-white/80 backdrop-blur-md shadow-2xs">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-xs">
             <Feather className="w-3.5 h-3.5" />
@@ -1241,8 +1219,30 @@ export default function App() {
           </span>
         </div>
 
-        <div className="text-xs text-stone-400 italic font-serif truncate max-w-xs sm:max-w-md">
-          {room?.title ? `"${room.title}"` : 'Collaborative Canvas'}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="text-xs text-stone-500 italic font-serif truncate hidden md:block max-w-xs">
+            {room?.title ? `"${room.title}"` : 'Collaborative Canvas'}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsGameModeModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 transition-all cursor-pointer shadow-2xs"
+            title="Set Number of Lines & Words Shown (Glimpse Settings)"
+          >
+            <Eye className="w-3.5 h-3.5 text-amber-700" />
+            <span>⚙️ Game Mode Rules</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleBackToLogin}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-stone-900 hover:bg-stone-800 text-stone-100 border border-stone-700 transition-all cursor-pointer shadow-2xs"
+            title="Return to Room Setup / Starting Screen"
+          >
+            <LogOut className="w-3.5 h-3.5 text-rose-400" />
+            <span>🚪 Back to Setup</span>
+          </button>
         </div>
       </header>
 
@@ -1261,7 +1261,7 @@ export default function App() {
             room={room}
             currentPlayerRole={currentPlayerRole}
             currentThemeId={currentThemeId}
-            highlightedLineNumber={highlightedLineNumber}
+            highlightedLineNumber={null}
             showPoetNames={showPoetNames}
             onToggleShowPoetNames={() => setShowPoetNames((prev) => !prev)}
             onSubmitLine={handleSubmitLine}
@@ -1270,21 +1270,16 @@ export default function App() {
             onVoteProposal={handleVoteProposal}
             onWithdrawProposal={handleWithdrawProposal}
             onChangeTitle={handleChangeTitle}
-            onReferenceLineInChat={(lineNum: number) => {
-              setIsChatOpen(true);
-              setHighlightedLineNumber(lineNum);
-            }}
+            onOpenNewPoemModal={() => setIsNewPoemModalOpen(true)}
           />
         )}
       </main>
 
-      {/* Floating Movable Wheel Menu (Prompt requirement: floating movable menu button that opens as a wheel menu) */}
+      {/* Floating Movable Wheel Menu */}
       {room && (
         <FloatingWheelMenu
-          onToggleChat={() => setIsChatOpen(!isChatOpen)}
-          isChatOpen={isChatOpen}
-          unreadChatCount={unreadChatCount}
-          hasNewPartnerMessage={hasNewPartnerMessage}
+          onBackToLogin={handleBackToLogin}
+          onOpenGameModeModal={() => setIsGameModeModalOpen(true)}
           onCopyMagicLink={handleCopyMagicLink}
           hasCopiedLink={hasCopiedLink}
           onOpenExportStudio={() => setIsExportModalOpen(true)}
@@ -1292,32 +1287,6 @@ export default function App() {
           onOpenNameModal={() => setIsNameModalOpen(true)}
           onOpenNewPoemModal={() => setIsNewPoemModalOpen(true)}
           onOpenHelp={() => setIsHelpOpen(true)}
-        />
-      )}
-
-      {/* In-Game Corner Co-Op Chat with Quill Settings Panel */}
-      {room && isChatOpen && (
-        <CornerChat
-          room={room}
-          currentPlayerRole={currentPlayerRole}
-          currentThemeId={currentThemeId}
-          onClose={() => setIsChatOpen(false)}
-          onSelectTheme={handleSelectTheme}
-          onShareCurrentTheme={handleShareMyTheme}
-          onOpenNameModal={() => setIsNameModalOpen(true)}
-          onOpenExportModal={() => setIsExportModalOpen(true)}
-          onCopyMagicLink={handleCopyMagicLink}
-          hasCopiedLink={hasCopiedLink}
-          onSwitchRole={() => {
-            const newRole = currentPlayerRole === 'player1' ? 'player2' : 'player1';
-            setCurrentPlayerRole(newRole);
-            if (room) updateUrlWithRoom(room.id, newRole);
-          }}
-          onSendMessage={handleSendMessage}
-          onReactMessage={handleReactMessage}
-          onScrollToLine={(lineNum) => {
-            setHighlightedLineNumber(lineNum);
-          }}
         />
       )}
 
@@ -1329,6 +1298,16 @@ export default function App() {
           room={room}
           onConfirmNewPoem={handleConfirmNewPoem}
           onOpenExportStudio={() => setIsExportModalOpen(true)}
+        />
+      )}
+
+      {/* Real-time Game Mode & Glimpse Settings Modal */}
+      {room && (
+        <GameModeSettingsModal
+          isOpen={isGameModeModalOpen}
+          onClose={() => setIsGameModeModalOpen(false)}
+          room={room}
+          onUpdateGameSettings={handleUpdateGameSettings}
         />
       )}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import {
   Send,
   Edit3,
@@ -48,8 +48,8 @@ interface PoemCanvasProps {
   onProposeDelete: (lineId: string) => Promise<void>;
   onVoteProposal: (proposalId: string, accept: boolean) => Promise<void>;
   onWithdrawProposal: (proposalId: string) => Promise<void>;
-  onReferenceLineInChat: (lineNum: number) => void;
   onChangeTitle: (newTitle: string) => Promise<void>;
+  onOpenNewPoemModal?: () => void;
 }
 
 export function PoemCanvas({
@@ -64,8 +64,8 @@ export function PoemCanvas({
   onProposeDelete,
   onVoteProposal,
   onWithdrawProposal,
-  onReferenceLineInChat,
   onChangeTitle,
+  onOpenNewPoemModal,
 }: PoemCanvasProps) {
   const theme = THEMES[currentThemeId] || THEMES.pink;
 
@@ -153,7 +153,7 @@ export function PoemCanvas({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = draftLine.trim();
-    if (!clean || isSubmitting) return;
+    if (!clean || isSubmitting || !isMyTurn) return;
 
     setIsSubmitting(true);
     try {
@@ -342,8 +342,20 @@ export function PoemCanvas({
                           Revealing last {revealedWordCount} word(s)
                         </span>
                       </div>
-                      <div className="font-mono text-amber-900 font-bold text-xs shrink-0 pl-2">
-                        {targetLineCount - room.lines.length} line(s) left!
+                      <div className="flex items-center gap-2 shrink-0 pl-2">
+                        <span className="font-mono text-amber-900 font-bold text-xs">
+                          {targetLineCount - room.lines.length} left
+                        </span>
+                        {onOpenNewPoemModal && (
+                          <button
+                            type="button"
+                            onClick={onOpenNewPoemModal}
+                            className="px-2 py-0.5 text-[10px] font-bold bg-amber-200 hover:bg-amber-300 text-amber-950 rounded-lg transition-colors cursor-pointer border border-amber-300 flex items-center gap-1 shadow-2xs"
+                            title="Adjust Glimpse Mode rules or start a new poem"
+                          >
+                            <span>⚙️ Rules</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
@@ -406,235 +418,235 @@ export function PoemCanvas({
                 const { maskedPart, revealedWords } = extractGlimpseParts(line.text, revealedWordCount);
 
                 return (
-                  <div key={line.id} id={`poem-line-${lineNum}`} className="group relative">
-                    {/* The Ruled Verse Row: Text baseline sits squarely on the blue border line! */}
-                    <div className="flex items-end min-h-[44px] border-b border-sky-300 pb-1 hover:bg-sky-50/20 transition-colors">
-                      {/* Left of Red Margin Line: Line Number & Clickable Poet Icon */}
-                      <div className="w-14 sm:w-20 shrink-0 pr-2.5 sm:pr-3 flex items-center justify-end gap-1">
-                        <span className="text-[11px] font-mono font-bold text-stone-400 select-none">
-                          {String(lineNum).padStart(2, '0')}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (activeEditingLineId === line.id) {
-                              handleCancelEdit();
-                            } else {
-                              handleStartEdit(line);
-                            }
-                          }}
-                          className={`text-xs p-1 rounded-md transition-all cursor-pointer flex items-center justify-center ${
-                            activeEditingLineId === line.id
-                              ? 'bg-amber-200 ring-2 ring-amber-400 scale-110 shadow-xs'
-                              : 'hover:bg-amber-100/70 active:scale-95'
-                          }`}
-                          title={`Click poet icon to edit Line ${lineNum} (${authorProfile.name})`}
-                          aria-label={`Edit Line ${lineNum}`}
-                        >
-                          <span className="text-xs select-none">
-                            {authorProfile.symbol || '🪶'}
+                  <Fragment key={line.id}>
+                    <div id={`poem-line-${lineNum}`} className="group relative">
+                      {/* The Ruled Verse Row: Text baseline sits squarely on the blue border line! */}
+                      <div className="flex items-end min-h-[44px] border-b border-sky-300 pb-1 hover:bg-sky-50/20 transition-colors">
+                        {/* Left of Red Margin Line: Line Number & Clickable Poet Icon */}
+                        <div className="w-14 sm:w-20 shrink-0 pr-2.5 sm:pr-3 flex items-center justify-end gap-1">
+                          <span className="text-[11px] font-mono font-bold text-stone-400 select-none">
+                            {String(lineNum).padStart(2, '0')}
                           </span>
-                        </button>
-                      </div>
-
-                      {/* Right of Red Margin Line: Verse Text seated directly on the blue line with actions on right! */}
-                      <div className="flex-1 min-w-0 pl-3 sm:pl-5 flex items-end justify-between group/verse">
-                        {isPastLineHiddenInGlimpse ? (
-                          <div className="flex items-center gap-2 text-stone-400 font-serif italic text-xs sm:text-sm py-1 select-none">
-                            <Lock className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                            <span className="opacity-40 font-mono tracking-widest">••••••••••••••••••••</span>
-                            <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md font-mono">
-                              Hidden until Line {targetLineCount}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (activeEditingLineId === line.id) {
+                                handleCancelEdit();
+                              } else {
+                                handleStartEdit(line);
+                              }
+                            }}
+                            className={`text-xs p-1 rounded-md transition-all cursor-pointer flex items-center justify-center ${
+                              activeEditingLineId === line.id
+                                ? 'bg-amber-200 ring-2 ring-amber-400 scale-110 shadow-xs'
+                                : 'hover:bg-amber-100/70 active:scale-95'
+                            }`}
+                            title={`Click poet icon to edit Line ${lineNum} (${authorProfile.name})`}
+                            aria-label={`Edit Line ${lineNum}`}
+                          >
+                            <span className="text-xs select-none">
+                              {authorProfile.symbol || '🪶'}
                             </span>
-                          </div>
-                        ) : isLatestLineInGlimpse ? (
-                          <div className="flex items-center gap-2 py-0.5 flex-wrap font-serif text-base sm:text-xl">
-                            {maskedPart && (
-                              <span className="text-stone-300 select-none tracking-widest font-mono text-sm opacity-60">
-                                {maskedPart}
+                          </button>
+                        </div>
+
+                        {/* Right of Red Margin Line: Verse Text seated directly on the blue line with actions on right! */}
+                        <div className="flex-1 min-w-0 pl-3 sm:pl-5 flex items-end justify-between group/verse">
+                          {isPastLineHiddenInGlimpse ? (
+                            <div className="flex items-center gap-2 text-stone-400 font-serif italic text-xs sm:text-sm py-1 select-none">
+                              <Lock className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                              <span className="opacity-40 font-mono tracking-widest">••••••••••••••••••••</span>
+                              <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md font-mono">
+                                Hidden until Line {targetLineCount}
                               </span>
-                            )}
-                            {revealedWords ? (
-                              <span
-                                onClick={() => {
-                                  if (activeEditingLineId === line.id) {
-                                    handleCancelEdit();
-                                  } else {
-                                    handleStartEdit(line);
-                                  }
-                                }}
-                                className="bg-amber-200/90 text-amber-950 font-bold px-3 py-0.5 rounded-xl border border-amber-400 shadow-2xs cursor-pointer hover:bg-amber-300 transition-colors inline-flex items-center gap-1.5"
-                                title="Click to view or propose edit"
-                              >
-                                <span>{revealedWords}</span>
-                                <span className="text-[10px] font-mono uppercase bg-amber-300 text-amber-950 px-1.5 py-0.2 rounded-md">
-                                  Glimpse
+                            </div>
+                          ) : isLatestLineInGlimpse ? (
+                            <div className="flex items-center gap-2 py-0.5 flex-wrap font-serif text-base sm:text-xl">
+                              {maskedPart && (
+                                <span className="text-stone-300 select-none tracking-widest font-mono text-sm opacity-60">
+                                  {maskedPart}
                                 </span>
-                              </span>
-                            ) : (
-                              <span className="text-stone-400 italic text-xs font-mono">
-                                🔒 (0 trailing words revealed)
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <p
-                            onClick={() => {
-                              if (activeEditingLineId === line.id) {
-                                handleCancelEdit();
-                              } else {
-                                handleStartEdit(line);
-                              }
-                            }}
-                            className="text-base sm:text-xl font-serif text-stone-900 leading-snug tracking-wide whitespace-normal break-words m-0 p-0 select-text cursor-pointer hover:text-stone-700"
-                            title="Click poet icon or verse to edit line"
-                          >
-                            {line.text}
-                          </p>
-                        )}
-
-                        {/* Action buttons on right edge - visible on touch, enhanced on hover */}
-                        <div className="flex items-center gap-0.5 opacity-70 sm:opacity-0 sm:group-hover/verse:opacity-100 transition-opacity pl-2 shrink-0 pb-0.5">
-                          <button
-                            type="button"
-                            onClick={() => onReferenceLineInChat(lineNum)}
-                            className="p-1 text-stone-400 hover:text-stone-800 hover:bg-stone-200/50 rounded-md cursor-pointer transition-colors"
-                            title={`Reference Line ${lineNum} in chat`}
-                          >
-                            <Quote className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (activeEditingLineId === line.id) {
-                                handleCancelEdit();
-                              } else {
-                                handleStartEdit(line);
-                              }
-                            }}
-                            className="p-1 text-stone-500 hover:text-amber-800 hover:bg-amber-100/60 rounded-md cursor-pointer transition-colors"
-                            title="Propose edit"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onProposeDelete(line.id)}
-                            className="p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-md cursor-pointer transition-colors"
-                            title="Propose deletion"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Active Inline Editing Box (when proposing an edit) */}
-                    {activeEditingLineId === line.id && (
-                      <div className="my-2 p-3.5 bg-amber-50/95 border border-amber-300 rounded-2xl shadow-xs animate-in fade-in duration-100">
-                        <p className="text-[10px] font-semibold text-amber-800 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                          <Edit3 className="w-3 h-3 text-amber-600" />
-                          Propose Revision to Line {lineNum}
-                        </p>
-                        <input
-                          type="text"
-                          value={proposalEditText}
-                          onChange={(e) => setProposalEditText(e.target.value)}
-                          className="w-full px-3.5 py-2 text-sm sm:text-base bg-white border border-amber-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400 text-stone-900"
-                          autoFocus
-                        />
-                        <div className="flex items-center justify-end gap-2 mt-2.5">
-                          <button
-                            type="button"
-                            onClick={handleCancelEdit}
-                            className="px-3 py-1.5 text-xs text-stone-600 hover:text-stone-900 cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSendEditProposal(line.id)}
-                            className="px-4 py-1.5 text-xs font-semibold text-white bg-amber-700 hover:bg-amber-800 rounded-xl cursor-pointer transition-colors shadow-2xs"
-                          >
-                            Submit Proposal for Approval
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Pending Proposal Frame Under the Line */}
-                    {pendingProposal && (
-                      <div className="my-2 p-3 rounded-2xl border-2 border-dashed border-rose-300 bg-rose-50/90 shadow-xs animate-in fade-in duration-150">
-                        <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-rose-200/80">
-                          <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-900">
-                            <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                            <span>
-                              {pendingProposal.type === 'edit'
-                                ? `Proposed Edit by ${pendingProposal.proposerName}`
-                                : `Proposed Deletion by ${pendingProposal.proposerName}`}
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-rose-500 font-mono">
-                            Requires partner approval
-                          </span>
-                        </div>
-
-                        {pendingProposal.type === 'edit' && (
-                          <div className="space-y-1 mb-2.5">
-                            <p className="text-xs text-stone-500 line-through">
-                              Original: "{line.text}"
-                            </p>
-                            <p className="text-sm sm:text-base font-medium text-stone-900 italic font-serif">
-                              Proposed: "{pendingProposal.newText}"
-                            </p>
-                          </div>
-                        )}
-
-                        {pendingProposal.type === 'delete' && (
-                          <p className="text-xs text-stone-600 italic mb-2.5">
-                            Proposing to remove this line from the poem.
-                          </p>
-                        )}
-
-                        <div className="flex items-center justify-end gap-2">
-                          {isProposer ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-stone-500 italic flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-stone-400" />
-                                Waiting for partner...
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => onWithdrawProposal(pendingProposal.id)}
-                                className="px-3 py-1.5 text-xs font-medium text-stone-600 hover:text-stone-900 bg-white border border-stone-200 rounded-xl hover:bg-stone-50 cursor-pointer"
-                              >
-                                Withdraw
-                              </button>
+                              )}
+                              {revealedWords ? (
+                                <span
+                                  onClick={() => {
+                                    if (activeEditingLineId === line.id) {
+                                      handleCancelEdit();
+                                    } else {
+                                      handleStartEdit(line);
+                                    }
+                                  }}
+                                  className="bg-amber-200/90 text-amber-950 font-bold px-3 py-0.5 rounded-xl border border-amber-400 shadow-2xs cursor-pointer hover:bg-amber-300 transition-colors inline-flex items-center gap-1.5"
+                                  title="Click to view or propose edit"
+                                >
+                                  <span>{revealedWords}</span>
+                                  <span className="text-[10px] font-mono uppercase bg-amber-300 text-amber-950 px-1.5 py-0.2 rounded-md">
+                                    Glimpse
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="text-stone-400 italic text-xs font-mono">
+                                  🔒 (0 trailing words revealed)
+                                </span>
+                              )}
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => onVoteProposal(pendingProposal.id, false)}
-                                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-stone-700 bg-white border border-stone-300 rounded-xl hover:bg-stone-50 cursor-pointer transition-colors"
-                              >
-                                <X className="w-3 h-3 text-rose-500" />
-                                Reject
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onVoteProposal(pendingProposal.id, true)}
-                                className="flex items-center gap-1 px-4 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl cursor-pointer transition-colors shadow-2xs"
-                              >
-                                <Check className="w-3 h-3" />
-                                Accept Change
-                              </button>
-                            </div>
+                            <p
+                              onClick={() => {
+                                if (activeEditingLineId === line.id) {
+                                  handleCancelEdit();
+                                } else {
+                                  handleStartEdit(line);
+                                }
+                              }}
+                              className="text-base sm:text-xl font-serif text-stone-900 leading-snug tracking-wide whitespace-normal break-words m-0 p-0 select-text cursor-pointer hover:text-stone-700"
+                              title="Click poet icon or verse to edit line"
+                            >
+                              {line.text}
+                            </p>
                           )}
+
+                          {/* Action buttons on right edge - visible on touch, enhanced on hover */}
+                          <div className="flex items-center gap-0.5 opacity-70 sm:opacity-0 sm:group-hover/verse:opacity-100 transition-opacity pl-2 shrink-0 pb-0.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (activeEditingLineId === line.id) {
+                                  handleCancelEdit();
+                                } else {
+                                  handleStartEdit(line);
+                                }
+                              }}
+                              className="p-1 text-stone-500 hover:text-amber-800 hover:bg-amber-100/60 rounded-md cursor-pointer transition-colors"
+                              title="Propose edit"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onProposeDelete(line.id)}
+                              className="p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-md cursor-pointer transition-colors"
+                              title="Propose deletion"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    )}
-                  </div>
+
+                      {/* Active Inline Editing Box (when proposing an edit) */}
+                      {activeEditingLineId === line.id && (
+                        <div className="my-2 p-3.5 bg-amber-50/95 border border-amber-300 rounded-2xl shadow-xs animate-in fade-in duration-100">
+                          <p className="text-[10px] font-semibold text-amber-800 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                            <Edit3 className="w-3 h-3 text-amber-600" />
+                            Propose Revision to Line {lineNum}
+                          </p>
+                          <input
+                            type="text"
+                            value={proposalEditText}
+                            onChange={(e) => setProposalEditText(e.target.value)}
+                            className="w-full px-3.5 py-2 text-sm sm:text-base bg-white border border-amber-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400 text-stone-900"
+                            autoFocus
+                          />
+                          <div className="flex items-center justify-end gap-2 mt-2.5">
+                            <button
+                              type="button"
+                              onClick={handleCancelEdit}
+                              className="px-3 py-1.5 text-xs text-stone-600 hover:text-stone-900 cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSendEditProposal(line.id)}
+                              className="px-4 py-1.5 text-xs font-semibold text-white bg-amber-700 hover:bg-amber-800 rounded-xl cursor-pointer transition-colors shadow-2xs"
+                            >
+                              Submit Proposal for Approval
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Pending Proposal Frame Under the Line */}
+                      {pendingProposal && (
+                        <div className="my-2 p-3 rounded-2xl border-2 border-dashed border-rose-300 bg-rose-50/90 shadow-xs animate-in fade-in duration-150">
+                          <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-rose-200/80">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-900">
+                              <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                              <span>
+                                {pendingProposal.type === 'edit'
+                                  ? `Proposed Edit by ${pendingProposal.proposerName}`
+                                  : `Proposed Deletion by ${pendingProposal.proposerName}`}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-rose-500 font-mono">
+                              Requires partner approval
+                            </span>
+                          </div>
+
+                          {pendingProposal.type === 'edit' && (
+                            <div className="space-y-1 mb-2.5">
+                              <p className="text-xs text-stone-500 line-through">
+                                Original: "{line.text}"
+                              </p>
+                              <p className="text-sm sm:text-base font-medium text-stone-900 italic font-serif">
+                                Proposed: "{pendingProposal.newText}"
+                              </p>
+                            </div>
+                          )}
+
+                          {pendingProposal.type === 'delete' && (
+                            <p className="text-xs text-stone-600 italic mb-2.5">
+                              Proposing to remove this line from the poem.
+                            </p>
+                          )}
+
+                          <div className="flex items-center justify-end gap-2">
+                            {isProposer ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-stone-500 italic flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-stone-400" />
+                                  Waiting for partner...
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => onWithdrawProposal(pendingProposal.id)}
+                                  className="px-3 py-1.5 text-xs font-medium text-stone-600 hover:text-stone-900 bg-white border border-stone-200 rounded-xl hover:bg-stone-50 cursor-pointer"
+                                >
+                                  Withdraw
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => onVoteProposal(pendingProposal.id, false)}
+                                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-stone-700 bg-white border border-stone-300 rounded-xl hover:bg-stone-50 cursor-pointer transition-colors"
+                                >
+                                  <X className="w-3 h-3 text-rose-500" />
+                                  Reject
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => onVoteProposal(pendingProposal.id, true)}
+                                  className="flex items-center gap-1 px-4 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl cursor-pointer transition-colors shadow-2xs"
+                                >
+                                  <Check className="w-3 h-3" />
+                                  Accept Change
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* One line space (empty blue notebook line) after each submitted verse line */}
+                    <div className="flex items-end min-h-[42px] border-b border-sky-300 select-none">
+                      <div className="w-14 sm:w-20 shrink-0" />
+                      <div className="flex-1 pl-3 sm:pl-5" />
+                    </div>
+                  </Fragment>
                 );
               })
             )}
@@ -793,15 +805,6 @@ export function PoemCanvas({
 
                       {/* Edit and Action Buttons Above the Line */}
                       <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                        <button
-                          type="button"
-                          onClick={() => onReferenceLineInChat(lineNum)}
-                          className="p-1 rounded-md text-stone-400 hover:text-stone-800 hover:bg-stone-200/50 transition-colors cursor-pointer"
-                          title={`Reference Line ${lineNum} in chat`}
-                        >
-                          <Quote className="w-3.5 h-3.5" />
-                        </button>
-
                         <button
                           type="button"
                           onClick={() => handleStartEdit(line)}
@@ -984,12 +987,13 @@ export function PoemCanvas({
               type="text"
               value={draftLine}
               onChange={(e) => setDraftLine(e.target.value)}
+              disabled={!isMyTurn}
               placeholder={
                 isMyTurn
                   ? 'Compose your rhyming line...'
-                  : `Waiting for ${partnerProfile.name}... (You can still write your idea)`
+                  : `Waiting for ${partnerProfile.name}'s turn... (Players alternate turns)`
               }
-              className={`w-full px-4 py-3 text-base sm:text-lg rounded-2xl border transition-all focus:outline-none focus:ring-2 shadow-inner ${theme.inputBgClass} ${theme.fontBodyClass}`}
+              className={`w-full px-4 py-3 text-base sm:text-lg rounded-2xl border transition-all focus:outline-none focus:ring-2 shadow-inner disabled:opacity-60 disabled:bg-stone-100/70 disabled:cursor-not-allowed ${theme.inputBgClass} ${theme.fontBodyClass}`}
             />
           </div>
 
@@ -1002,11 +1006,22 @@ export function PoemCanvas({
 
             <button
               type="submit"
-              disabled={!draftLine.trim() || isSubmitting}
+              disabled={!draftLine.trim() || isSubmitting || !isMyTurn}
               className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${theme.accentClass} ${theme.accentHoverClass}`}
+              title={
+                !isMyTurn
+                  ? `Waiting for ${partnerProfile.name}'s turn. Players alternate turns.`
+                  : 'Submit line to partner'
+              }
             >
               <Send className="w-3.5 h-3.5" />
-              <span>{isSubmitting ? 'Submitting...' : 'Submit Line'}</span>
+              <span>
+                {isSubmitting
+                  ? 'Submitting...'
+                  : !isMyTurn
+                  ? "Waiting for Partner..."
+                  : 'Submit Line'}
+              </span>
             </button>
           </div>
         </form>
